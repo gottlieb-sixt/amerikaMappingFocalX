@@ -84,6 +84,10 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
     gt_file = GT / f"{key}.json"
     truths = load_truths(gt_file) if gt_file.exists() else []
     print(f"  {len(images)} Bilder, {len(truths)} Ground-Truth-Schäden", flush=True)
+    if not images:
+        # Alter Foto-Flow (vor den 19 Positionen) — nichts zu inspizieren.
+        print("  ÜBERSPRUNGEN: keine Positions-Bilder", flush=True)
+        return {"plate": plate, "checkin": name, "skipped": "no_position_images"}
 
     result = client.inspect(key, images, on_progress=lambda m: print(f"  {m}", flush=True))
     # Symmetrischer Scope: Glas-/Interior-Findings zählen weder als Treffer
