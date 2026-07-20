@@ -89,11 +89,24 @@ with tab_found:
         st.divider()
 
 with tab_missed:
+    import re as _re
+    plate_key = _re.sub(r"[^A-Za-z0-9]", "", r["plate"]).upper()
     for tid in r["missed"]:
         t = truths.get(tid, {})
-        st.markdown(f"**DB #{tid}** · {t.get('part')} · {t.get('damage_type')} "
-                    f"· {t.get('side_attr')} · {t.get('projection')}/{t.get('segment')} "
-                    f"({t.get('severity') or '–'})")
+        cols = st.columns([3, 3])
+        with cols[0]:
+            st.markdown(f"**DB #{tid}** · {t.get('part')} · {t.get('damage_type')} "
+                        f"· {t.get('side_attr')} · {t.get('projection')}/{t.get('segment')} "
+                        f"({t.get('severity') or '–'})")
+        with cols[1]:
+            gt_imgs = sorted((ROOT / "data" / "gt_photos" / plate_key).glob(f"{tid}_*.jpg"))
+            if gt_imgs:
+                img_cols = st.columns(min(len(gt_imgs), 3))
+                for c, img in zip(img_cols, gt_imgs[:3]):
+                    c.image(str(img), width=200)
+            else:
+                st.caption("Kein DB-Foto geladen (scripts/download_gt_photos.py --refetch)")
+        st.divider()
     if not r["missed"]:
         st.success("Alle DB-Schäden wurden gefunden.")
 

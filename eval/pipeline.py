@@ -175,6 +175,12 @@ def main() -> None:
         dirs = [d for d in dirs
                 if any(a in str(d) or a.replace("-", "") in d.name.replace("-", "") for a in args)]
     dirs = [d for d in dirs if not (RESULTS / f"{d.name}.json").exists()]
+    if "--only-damaged" in sys.argv:
+        def in_scope(d):
+            key = re.sub(r"[^A-Za-z0-9]", "", d.name.split("__")[0]).upper()
+            gt = GT / f"{key}.json"
+            return bool(images_for(d)) and gt.exists() and bool(load_truths(gt))
+        dirs = [d for d in dirs if in_scope(d)]
     if limit:
         dirs = dirs[:limit]
     print(f"{len(dirs)} Check-in(s) zu bewerten")
