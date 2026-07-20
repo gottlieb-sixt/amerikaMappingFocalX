@@ -1,19 +1,14 @@
-"""Evaluation pipeline: per car → FocalX → match against ground truth → result JSON.
+"""Evaluation pipeline: Check-in → FocalX → Match gegen Ground Truth → Result.
 
-Data layout (until the download API is wired in, cars can be prepared by hand):
+Datenlayout (von den Lynx-Fetch-Skripten erzeugt):
+  data/raw/<datum>/<PLATE>__<checkin8>/<POSITION>.jpg   Check-in-Fotos
+  data/ground_truth/<PLATEKEY>.json                     Schadensfälle (numerisch)
+  data/results/<PLATE>__<checkin8>.json                 Ergebnis (dieses Skript)
 
-  data/cars/<PLATE>/
-      images/<position-label>.jpg     walk-around photos, named by FocalX label
-      ground_truth.json               raw damage-case response (SHARK format,
-                                      like system-damages/damages.json entries)
-  data/results/<PLATE>.json           written by this pipeline
-  data/results/<PLATE>/closeups/      downloaded AI close-ups
-
-Run:  python -m eval.pipeline <PLATE> [<PLATE> ...]        (single-threaded)
-      python -m eval.pipeline --all                        (every car in data/cars)
-
-TODO(api): replace `load_local_images` / `load_local_ground_truth` with the
-real download endpoints once provided.
+Run:
+  python -m eval.pipeline 2026-07-20            # alle Check-ins des Tages
+  python -m eval.pipeline FL-DX29HV             # bestimmtes Auto (Substring)
+  python -m eval.pipeline --limit 2 2026-07-20  # nur N Check-ins (Pilot)
 """
 from __future__ import annotations
 
@@ -24,13 +19,38 @@ import sys
 import time
 from pathlib import Path
 
-from .focalx import FocalxClient, VALID_WALKAROUND
+from .focalx import FocalxClient
+from .ground_truth import load_truths
 from .judge import judge_pair
-from .matcher import Truth, match
+from .matcher import match
 
 ROOT = Path(__file__).resolve().parent.parent
-CARS = ROOT / "data" / "cars"
+RAW = ROOT / "data" / "raw"
+GT = ROOT / "data" / "ground_truth"
 RESULTS = ROOT / "data" / "results"
+
+# Check-in-Positionsname → kanonisches FocalX-Label (LHD: left = Fahrerseite).
+POSITION_MAP = {
+    "EXTERIOR_FRONT_STRAIGHT": "front",
+    "FRONT_BONNET": "afront",
+    "DIAGONAL_FRONT_LEFT": "front-left",
+    "FRONT_LEFT_FENDER": "afront-left",
+    "TYRE_RIM_FRONT_LEFT": "afront-left-wheel",
+    "LEFT_SIDE_FRONT_DOOR": "aleft-front",
+    "LEFT_SIDE_REAR_DOOR": "aleft-rear",
+    "LEFT_SIDE_REAR_FENDER": "left-rear",
+    "TYRE_RIM_REAR_LEFT": "arear-left-wheel",
+    "DIAGONAL_REAR_LEFT": "rear-left",
+    "EXTERIOR_REAR_STRAIGHT": "rear",
+    "DIAGONAL_REAR_RIGHT": "rear-right",
+    "TYRE_RIM_REAR_RIGHT": "arear-right-wheel",
+    "RIGHT_SIDE_REAR_FENDER": "right-rear",
+    "RIGHT_SIDE_REAR_DOOR": "abcright-rear",
+    "RIGHT_SIDE_FRONT_DOOR": "aright-front",
+    "TYRE_RIM_FRONT_RIGHT": "afront-right-wheel",
+    "FRONT_RIGHT_FENDER": "afront-right",
+    "DIAGONAL_FRONT_RIGHT": "front-right",
+}
 
 
 def _env(name: str) -> str:
@@ -45,61 +65,33 @@ def _env(name: str) -> str:
     return val
 
 
-# ── inputs (local for now; API later) ───────────────────────────────────────
-
-def load_local_images(plate: str) -> list[tuple[str, Path]]:
-    """images/<label>.jpg — the stem must be a valid FocalX position label."""
-    folder = CARS / plate / "images"
+def images_for(checkin_dir: Path) -> list[tuple[str, Path]]:
     out = []
-    for p in sorted(folder.glob("*.jpg")):
-        label = p.stem
-        if label not in VALID_WALKAROUND:
-            print(f"  WARN: '{label}' is not a known FocalX label — upload would be IGNORED by the AI")
-        out.append((label, p))
+    for p in sorted(checkin_dir.glob("*.jpg")):
+        label = POSITION_MAP.get(p.stem)
+        if label:
+            out.append((label, p))
     return out
 
 
-def load_local_ground_truth(plate: str) -> list[Truth]:
-    """Parses a raw damage-case response (the SHARK format)."""
-    path = CARS / plate / "ground_truth.json"
-    obj = json.loads(path.read_text())
-    truths = []
-    for case in obj.get("damage_cases", []):
-        for d in case.get("damages", []):
-            lv = d.get("localized_values", {})
-            co = (d.get("coordinates") or [{}])[0]
-            truths.append(Truth(
-                damage_id=str(d.get("damage_number") or d.get("damage_id")),
-                part=lv.get("part") or d.get("part") or "",
-                damage_type=lv.get("type") or "",
-                side_attr=lv.get("side") or "",
-                projection=co.get("projection") or "",
-                segment=co.get("segment") or "",
-                severity=lv.get("severity"),
-                case_number=case.get("case_number"),
-            ))
-    return truths
+def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
+    name = checkin_dir.name                       # PLATE__checkin8
+    plate = name.split("__")[0]
+    key = re.sub(r"[^A-Za-z0-9]", "", plate).upper()
+    print(f"=== {name} ===", flush=True)
 
+    images = images_for(checkin_dir)
+    gt_file = GT / f"{key}.json"
+    truths = load_truths(gt_file) if gt_file.exists() else []
+    print(f"  {len(images)} Bilder, {len(truths)} Ground-Truth-Schäden", flush=True)
 
-# ── evaluation ──────────────────────────────────────────────────────────────
-
-def evaluate(plate: str, client: FocalxClient, llm_key: str) -> dict:
-    print(f"=== {plate} ===")
-    images = load_local_images(plate)
-    truths = load_local_ground_truth(plate)
-    print(f"  {len(images)} images, {len(truths)} ground-truth damages")
-
-    result = client.inspect(plate, images, on_progress=lambda m: print(f"  {m}"))
+    result = client.inspect(key, images, on_progress=lambda m: print(f"  {m}", flush=True))
     findings = result.findings
-    print(f"  FocalX: {len(findings)} finding(s) on {result.orientations} orientation(s)")
+    print(f"  FocalX: {len(findings)} Finding(s) auf {result.orientations} Ansichten", flush=True)
 
-    keys = [f"F{i+1}" for i in range(len(findings))]
-    finding_tuples = [
-        (k, f.position, f.part, f.damage_type) for k, f in zip(keys, findings)
-    ]
-    m = match(finding_tuples, truths)
+    keys = [f"F{i + 1}" for i in range(len(findings))]
+    m = match([(k, f.position, f.part, f.damage_type) for k, f in zip(keys, findings)], truths)
 
-    # LLM judge: verify matches + decide ambiguous pairs.
     by_key = dict(zip(keys, findings))
     by_id = {t.damage_id: t for t in truths}
     judged = []
@@ -109,13 +101,11 @@ def evaluate(plate: str, client: FocalxClient, llm_key: str) -> dict:
             llm_key,
             {"position": f.position, "part": f.part, "type": f.damage_type},
             {"part": t.part, "type": t.damage_type, "side": t.side_attr,
-             "projection": t.projection, "severity": t.severity},
+             "projection": t.projection, "segment": t.segment, "severity": t.severity},
         )
         judged.append({"finding": k, "damage_id": tid, "score": s,
-                       "heuristic_matched": (k, tid, s) in m.matched,
-                       "judge": verdict})
+                       "heuristic_matched": (k, tid, s) in m.matched, "judge": verdict})
 
-    # Judge can promote ambiguous pairs / veto heuristic ones.
     confirmed = set()
     for j in judged:
         v = j["judge"]
@@ -127,8 +117,7 @@ def evaluate(plate: str, client: FocalxClient, llm_key: str) -> dict:
     matched_truths = {t for _, t in confirmed}
     matched_findings = {f for f, _ in confirmed}
 
-    # Close-up downloads for the dashboard.
-    closeup_dir = RESULTS / plate / "closeups"
+    closeup_dir = RESULTS / name / "closeups"
     closeup_dir.mkdir(parents=True, exist_ok=True)
     closeups = {}
     for k, f in zip(keys, findings):
@@ -139,6 +128,7 @@ def evaluate(plate: str, client: FocalxClient, llm_key: str) -> dict:
 
     report = {
         "plate": plate,
+        "checkin": name,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "inspection_id": result.inspection_id,
         "images": len(images),
@@ -157,26 +147,34 @@ def evaluate(plate: str, client: FocalxClient, llm_key: str) -> dict:
         "truths": [t.__dict__ for t in truths],
     }
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f"{plate}.json").write_text(json.dumps(report, indent=2))
-    print(f"  → recall {report['recall']}: {len(matched_truths)}/{len(truths)} found, "
-          f"{len(report['extra_findings'])} extra · saved data/results/{plate}.json")
+    (RESULTS / f"{name}.json").write_text(json.dumps(report, indent=2))
+    rec = f"{report['recall']:.0%}" if report["recall"] is not None else "– (0 GT)"
+    print(f"  → Recall {rec}: {len(matched_truths)}/{len(truths)} gefunden, "
+          f"{len(report['extra_findings'])} zusätzlich · data/results/{name}.json", flush=True)
     return report
 
 
 def main() -> None:
-    args = sys.argv[1:]
-    plates = ([p.name for p in CARS.iterdir() if p.is_dir()]
-              if args == ["--all"] else [re.sub(r"[^A-Za-z0-9]", "", a).upper() for a in args])
-    if not plates:
-        print(__doc__)
-        return
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    limit = 0
+    if "--limit" in sys.argv:
+        limit = int(sys.argv[sys.argv.index("--limit") + 1])
+        args = [a for a in args if a != str(limit)]
+    dirs = sorted(d for d in RAW.glob("*/*/") if d.is_dir())
+    if args:
+        dirs = [d for d in dirs
+                if any(a in str(d) or a.replace("-", "") in d.name.replace("-", "") for a in args)]
+    dirs = [d for d in dirs if not (RESULTS / f"{d.name}.json").exists()]
+    if limit:
+        dirs = dirs[:limit]
+    print(f"{len(dirs)} Check-in(s) zu bewerten")
     client = FocalxClient(_env("FOCALX_PRECISE_USERNAME"), _env("FOCALX_PRECISE_PASSWORD"))
     llm_key = _env("LLM_GW_API_KEY")
-    for plate in plates:
+    for d in dirs:
         try:
-            evaluate(plate, client, llm_key)
+            evaluate(d, client, llm_key)
         except Exception as e:
-            print(f"  FAILED {plate}: {e}")
+            print(f"  FEHLER {d.name}: {e}", flush=True)
 
 
 if __name__ == "__main__":

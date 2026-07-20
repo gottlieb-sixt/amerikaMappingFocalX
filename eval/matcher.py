@@ -59,6 +59,7 @@ LABEL_SIDE_ZONE = {
     "rear-right": ("rear", "right"), "right-rear": ("right", "rear"),
     "abcright-rear": ("right", "rear"), "arear-right-wheel": ("right", "rear"),
     "aright-front": ("right", "front"), "right-front": ("right", "front"),
+    "afront-right": ("right", "front"),
     "afront-right-wheel": ("right", "front"), "front-right": ("right", "front"),
 }
 

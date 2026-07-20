@@ -40,8 +40,15 @@ def encode(plate: str, plate_f: int, fetch_f: int) -> bytes:
 
 
 def looks_like_damage_response(decoded) -> bool:
-    text = json.dumps(decoded, default=str) if decoded else ""
-    return any(k in text for k in ("damage", "CLOSED", "SEVERITY", "TYPE_", "case"))
+    """Gültig = Schadensdaten ODER eine leere-aber-strukturierte Antwort
+    (Auto ohne erfasste Schäden: nur der Meta-Block, Feld 1)."""
+    if not decoded:
+        return False
+    text = json.dumps(decoded, default=str)
+    if any(k in text for k in ("damage", "CLOSED", "SEVERITY", "TYPE_", "case", "SIDE")):
+        return True
+    # Meta-only: {"1": {…}} ohne Fallliste → valide 0-Schäden-Antwort
+    return isinstance(decoded.get("1"), dict) and "2" not in decoded
 
 
 def fetch(token: str, plate: str) -> dict | None:
@@ -56,7 +63,7 @@ def fetch(token: str, plate: str) -> dict | None:
         try:
             payload, _ = call(token, encode(plate, plate_f, fetch_f))
         except Exception as e:
-            if "expired" in str(e).lower() or "jwt" in str(e).lower():
+            if any(t in str(e).lower() for t in ("expired", "jwt", "401", "unauthorized")):
                 raise SystemExit("TOKEN ABGELAUFEN — mit frischem Token erneut starten (resumable)")
             print(f"  Felder ({plate_f},{fetch_f}): {str(e)[:100]}")
             continue
