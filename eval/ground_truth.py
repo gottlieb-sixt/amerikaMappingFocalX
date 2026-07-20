@@ -23,13 +23,26 @@ SEGMENT_BY_NUMBER = {
 }
 
 
+# Benchmark-Scope: nur Exterieur ohne Glas. Raus fliegen Windschutzscheibe /
+# Scheiben / Glas / Sonnendach sowie alles Innenraum-bezogene.
+EXCLUDE_KEYWORDS = (
+    "windscreen", "windshield", "window", "glass", "sunroof",
+    "interior", "dashboard", "seat", "cockpit", "boot interior",
+)
+
+
+def is_exterior_non_glass(part: str, group: str = "") -> bool:
+    text = f"{part} {group}".lower()
+    return not any(k in text for k in EXCLUDE_KEYWORDS)
+
+
 def _as_list(v):
     if v is None:
         return []
     return v if isinstance(v, list) else [v]
 
 
-def load_truths(path: Path) -> list[Truth]:
+def load_truths(path: Path, exterior_only: bool = True) -> list[Truth]:
     data = json.loads(path.read_text())
     out: list[Truth] = []
     for case in _as_list(data.get("2")):
@@ -49,9 +62,13 @@ def load_truths(path: Path) -> list[Truth]:
                 seg = SEGMENT_BY_NUMBER.get(int(str(first.get("4", 0))), "")
             except ValueError:
                 seg = ""
+            part = str(lv.get("1") or "")
+            group = str(lv.get("5") or "")
+            if exterior_only and not is_exterior_non_glass(part, group):
+                continue
             out.append(Truth(
                 damage_id=str(d.get("3") or d.get("1")),
-                part=str(lv.get("1") or ""),
+                part=part,
                 damage_type=str(lv.get("2") or ""),
                 side_attr=str(lv.get("4") or ""),
                 projection=proj,

@@ -86,7 +86,13 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
     print(f"  {len(images)} Bilder, {len(truths)} Ground-Truth-Schäden", flush=True)
 
     result = client.inspect(key, images, on_progress=lambda m: print(f"  {m}", flush=True))
-    findings = result.findings
+    # Symmetrischer Scope: Glas-/Interior-Findings zählen weder als Treffer
+    # noch als False Positives.
+    from .ground_truth import is_exterior_non_glass
+    findings = [f for f in result.findings if is_exterior_non_glass(f.part or "")]
+    n_excluded = len(result.findings) - len(findings)
+    if n_excluded:
+        print(f"  {n_excluded} Glas-/Interior-Finding(s) ausgefiltert", flush=True)
     print(f"  FocalX: {len(findings)} Finding(s) auf {result.orientations} Ansichten", flush=True)
 
     keys = [f"F{i + 1}" for i in range(len(findings))]
