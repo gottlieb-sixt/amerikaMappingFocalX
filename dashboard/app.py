@@ -280,7 +280,8 @@ elif mode.startswith("🔍"):
         color: inherit !important; min-height: 0 !important;
     }
     [class*="st-key-mtoggle_"] button p {
-        font-size: 2.25rem !important; font-weight: 600 !important; line-height: 1.4;
+        font-size: 36px !important; font-weight: 400 !important;
+        line-height: normal !important; padding-bottom: 4px;
     }
     [class*="st-key-mtoggle_"] button:hover { color: #e8802a !important; }
     </style>""", unsafe_allow_html=True)
