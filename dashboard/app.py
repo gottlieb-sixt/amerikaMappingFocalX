@@ -110,8 +110,7 @@ r = next(x for x in data if x["checkin"] == sel)
 key = plate_key(r["plate"])
 truths = {str(t["damage_id"]): t for t in r["truths"]}
 findings = {f["key"]: f for f in r["findings"]}
-pair_by_truth = {p["damage_id"]: p for p in r["pairs"]
-                 if p["heuristic_matched"] or (p["judge"] or {}).get("same_damage")}
+pair_by_truth = {p["damage_id"]: p for p in r["pairs"] if p.get("finding")}
 
 category = st.radio(
     "Kategorie",
@@ -127,12 +126,12 @@ if category.startswith("✅"):
     for tid in r["found"]:
         t, p = truths.get(tid, {}), pair_by_truth.get(tid)
         f = findings.get(p["finding"]) if p else None
-        judge = (p.get("judge") or {}) if p else {}
-        if judge:
-            nt = (f"🧠 LLM-Judge: {'gleicher Schaden ✔' if judge.get('same_damage') else 'abgelehnt ✘'} "
-                  f"(Konfidenz {judge.get('confidence', '–')}) — {judge.get('reason', '')}")
+        if p and p.get("via") == "ai":
+            nt = (f"🧠 KI-Match (Konfidenz {p.get('confidence', '–')}) — {p.get('reason', '')}"
+                  + (f"  ·  {len(p.get('candidates', []))} Kandidat(en) geprüft"
+                     if len(p.get("candidates", [])) > 1 else ""))
         else:
-            nt = f"⚙️ Heuristik-Match (Score {p.get('score') if p else '–'})"
+            nt = f"⚙️ {p.get('reason') if p else 'Heuristik-Match'}"
         cards.append(gallery.card(gt_block(key, tid, t, GREEN),
                                   ai_block(f, BLUE, nt) if f else ""))
     if not r["found"]:

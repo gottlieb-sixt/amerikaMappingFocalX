@@ -21,11 +21,12 @@ from pathlib import Path
 
 from .focalx import FocalxClient
 from .ground_truth import load_truths
-from .judge import judge_pair
-from .matcher import match
+from .judge import judge_group
+from .matcher import candidates_per_truth, heuristic_confident
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
+GT_PHOTOS = ROOT / "data" / "gt_photos"
 GT = ROOT / "data" / "ground_truth"
 RESULTS = ROOT / "data" / "results"
 
@@ -74,6 +75,11 @@ def images_for(checkin_dir: Path) -> list[tuple[str, Path]]:
     return out
 
 
+def gt_images(key: str, damage_id: str) -> list[Path]:
+    """Original-Schadensfotos aus der DB (scripts/download_gt_photos.py)."""
+    return sorted((GT_PHOTOS / key).glob(f"{damage_id}_*.jpg"))
+
+
 def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
     name = checkin_dir.name                       # PLATE__checkin8
     plate = name.split("__")[0]
@@ -100,41 +106,73 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
     print(f"  FocalX: {len(findings)} Finding(s) auf {result.orientations} Ansichten", flush=True)
 
     keys = [f"F{i + 1}" for i in range(len(findings))]
-    m = match([(k, f.position, f.part, f.damage_type) for k, f in zip(keys, findings)], truths)
-
     by_key = dict(zip(keys, findings))
     by_id = {t.damage_id: t for t in truths}
-    judged = []
-    for k, tid, s in list(m.matched) + list(m.ambiguous):
-        f, t = by_key[k], by_id[tid]
-        verdict = judge_pair(
-            llm_key,
-            {"position": f.position, "part": f.part, "type": f.damage_type},
-            {"part": t.part, "type": t.damage_type, "side": t.side_attr,
-             "projection": t.projection, "segment": t.segment, "severity": t.severity},
-        )
-        judged.append({"finding": k, "damage_id": tid, "score": s,
-                       "heuristic_matched": (k, tid, s) in m.matched, "judge": verdict})
 
-    confirmed = set()
-    for j in judged:
-        v = j["judge"]
-        if v is None:
-            if j["heuristic_matched"]:
-                confirmed.add((j["finding"], j["damage_id"]))
-        elif v.get("same_damage"):
-            confirmed.add((j["finding"], j["damage_id"]))
-    matched_truths = {t for _, t in confirmed}
-    matched_findings = {f for f, _ in confirmed}
-
+    # Close-ups ZUERST laden — der multimodale Judge braucht die Bilder.
     closeup_dir = RESULTS / name / "closeups"
     closeup_dir.mkdir(parents=True, exist_ok=True)
-    closeups = {}
+    closeups: dict[str, str] = {}
+    closeup_path: dict[str, Path] = {}
     for k, f in zip(keys, findings):
         if f.close_up_url and f.close_up_url.startswith("http"):
             dest = closeup_dir / f"{k}.jpg"
             if client.download(f.close_up_url, dest):
                 closeups[k] = str(dest.relative_to(ROOT))
+                closeup_path[k] = dest
+
+    # Kandidaten je GT-Schaden (alle geografisch plausiblen Findings).
+    cand = candidates_per_truth(
+        [(k, f.position, f.part, f.damage_type) for k, f in zip(keys, findings)], truths)
+
+    # GT-Schäden mit dem stärksten Kandidaten zuerst — so greift der Judge
+    # eindeutige Matches ab, bevor er über schwächere entscheidet. Ein Finding
+    # wird nach Zuordnung "verbraucht" (kein Doppel-Zählen über GT-Schäden).
+    order = sorted(truths, key=lambda t: -(cand[t.damage_id][0][1] if cand[t.damage_id] else 0))
+    consumed: set[str] = set()
+    matched_map: dict[str, str] = {}   # damage_id → finding key
+    pairs = []
+    for t in order:
+        avail = [(k, s) for k, s in cand[t.damage_id] if k not in consumed]
+        if not avail:
+            continue
+        cand_dicts = [{
+            "key": k, "part": by_key[k].part, "type": by_key[k].damage_type,
+            "position": by_key[k].position, "orientation": by_key[k].orientation,
+            "closeup": closeup_path.get(k),
+        } for k, _ in avail]
+        verdict = judge_group(
+            llm_key,
+            {"part": t.part, "damage_type": t.damage_type, "side_attr": t.side_attr,
+             "projection": t.projection, "segment": t.segment, "severity": t.severity},
+            gt_images(key, t.damage_id),
+            cand_dicts,
+        )
+        chosen, via, conf, reason = None, None, None, ""
+        if verdict is None:
+            # Strenger Fallback ohne KI: nur bei Seite+Typ+Bauteil-Match.
+            best_k, best_s = avail[0]
+            bf = by_key[best_k]
+            if heuristic_confident(bf.position, bf.part, bf.damage_type, t):
+                chosen, via = best_k, "heuristic"
+                reason = f"Heuristik: Seite+Typ+Bauteil (Score {best_s}, KI n/a)"
+        elif verdict.get("match_key") and verdict["match_key"] not in consumed:
+            chosen, via = verdict["match_key"], "ai"
+            conf, reason = verdict.get("confidence"), verdict.get("reason", "")
+        else:
+            # KI hat geurteilt, aber keinen (freien) Kandidaten als Match bestätigt.
+            via, reason = "ai_rejected", verdict.get("reason", "")
+        if chosen:
+            matched_map[t.damage_id] = chosen
+            consumed.add(chosen)
+        pairs.append({
+            "damage_id": t.damage_id, "finding": chosen, "via": via,
+            "confidence": conf, "reason": reason,
+            "candidates": [k for k, _ in avail],
+        })
+
+    matched_truths = set(matched_map.keys())
+    matched_findings = set(matched_map.values())
 
     report = {
         "plate": plate,
@@ -148,7 +186,7 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
         "missed": sorted(t.damage_id for t in truths if t.damage_id not in matched_truths),
         "extra_findings": sorted(k for k in keys if k not in matched_findings),
         "recall": round(len(matched_truths) / len(truths), 3) if truths else None,
-        "pairs": judged,
+        "pairs": pairs,
         "findings": [
             {"key": k, "position": f.position, "orientation": f.orientation,
              "part": f.part, "type": f.damage_type, "closeup": closeups.get(k)}

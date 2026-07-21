@@ -152,6 +152,41 @@ def score(finding_position: str, finding_part: str | None, finding_type: str,
     return s
 
 
+def heuristic_confident(position: str, part: str | None, dtype: str, truth: Truth) -> bool:
+    """Strenger Fallback OHNE KI: nur akzeptieren, wenn Seite, Typ UND
+    Bauteilklasse übereinstimmen — sonst lieber 'nicht gefunden' als ein
+    Falsch-Match (z. B. Felge↔Motorhaube). Nur relevant, wenn der Judge nicht
+    erreichbar ist (kein VPN/Key)."""
+    f_side, f_zone = finding_side_zone(position)
+    if nearness(f_side, f_zone, truth_side(truth)) < 3:   # exakt gleiche Seite
+        return False
+    if norm_type(dtype) != norm_type(truth.damage_type):
+        return False
+    fc, tc = part_class(part), part_class(truth.part)
+    return fc is not None and fc == tc
+
+
+def candidates_per_truth(
+    findings: list[tuple[str, str, str | None, str]],
+    truths: list[Truth],
+    top_n: int = 8,
+) -> dict[str, list[tuple[str, int]]]:
+    """Pro Ground-Truth-Schaden ALLE geografisch plausiblen Findings (nearness>0),
+    nach Heuristik-Score absteigend, gekappt auf top_n. Das ist der Kandidaten-
+    Pool, den der multimodale Judge bildbasiert bewertet."""
+    out: dict[str, list[tuple[str, int]]] = {}
+    for t in truths:
+        scored = []
+        for key, pos, part, dtype in findings:
+            f_side, f_zone = finding_side_zone(pos)
+            if nearness(f_side, f_zone, truth_side(t)) <= 0:
+                continue
+            scored.append((key, score(pos, part, dtype, t)))
+        scored.sort(key=lambda x: -x[1])
+        out[t.damage_id] = scored[:top_n]
+    return out
+
+
 def match(findings: list[tuple[str, str, str | None, str]],
           truths: list[Truth]) -> MatchResult:
     """`findings` = (key, position_label, part, damage_type) per finding."""
