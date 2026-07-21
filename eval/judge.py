@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import json
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -91,6 +92,11 @@ def _post_with_retry(api_key: str, body: str, attempts: int = 10) -> str | None:
                 payload = json.loads(r.read().decode())
             choices = payload.get("choices") or []
             if not choices:   # Reasoning-Budget aufgebraucht, kein Text generiert
+                u = payload.get("usage", {})
+                print(f"    [judge] leere choices (Versuch {i + 1}): "
+                      f"usage={u.get('completion_tokens')} "
+                      f"reasoning={u.get('completion_tokens_details', {}).get('reasoning_tokens')}",
+                      file=sys.stderr)
                 if i < attempts - 1:
                     time.sleep(3)
                     continue
@@ -100,11 +106,13 @@ def _post_with_retry(api_key: str, body: str, attempts: int = 10) -> str | None:
             if e.code in (429, 500, 502, 503, 504) and i < attempts - 1:
                 time.sleep(min(60, 5 * (i + 1)))   # 5,10,…,60s
                 continue
+            print(f"    [judge] HTTP {e.code} endgültig: {e.read()[:200]!r}", file=sys.stderr)
             return None
-        except Exception:
+        except Exception as e:
             if i < attempts - 1:
                 time.sleep(3)
                 continue
+            print(f"    [judge] Fehler endgültig: {e!r}", file=sys.stderr)
             return None
     return None
 
