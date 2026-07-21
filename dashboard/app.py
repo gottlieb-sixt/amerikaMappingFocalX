@@ -93,6 +93,18 @@ def ai_info_for(r: dict, dmg_ids: list[str]) -> tuple[list[str], str | None]:
     return [], None
 
 
+def ai_scan_done(r: dict) -> bool:
+    """True = KI-Scan komplett: Mapping gelaufen und JEDES GT-Paar hat ein
+    echtes KI-Urteil (kein Heuristik-Fallback, kein fehlgeschlagener Call)."""
+    if r.get("mapping_pending"):
+        return False
+    ph = r.get("physical") or {}
+    pairs = ph.get("cluster_pairs")
+    if pairs is None:
+        return False
+    return all(cp.get("via") in ("ai", "ai_rejected") for cp in pairs)
+
+
 META_KEY = "_meta"
 
 
@@ -189,11 +201,13 @@ if mode.startswith("📊"):
         "Recall": (r.get("physical") or {}).get("recall", r["recall"]),
         "Neue Schäden (unique)": (r.get("physical") or {}).get("extras_unique",
                                                                len(r["extra_findings"])),
-        "Status": "⏳ Mapping ausstehend" if r.get("mapping_pending") else "gemappt",
+        "Status": ("🟢 AI-Scan fertig — reviewbar" if ai_scan_done(r)
+                   else "⏳ Mapping ausstehend" if r.get("mapping_pending")
+                   else "🟡 AI-Scan läuft"),
         "Zeitpunkt": r["timestamp"],
     } for r in data]
     df = pd.DataFrame(rows)
-    mapped = df[df["Status"] == "gemappt"]
+    mapped = df[df["Status"] != "⏳ Mapping ausstehend"]
     total_phys = int(mapped["Physisch (DB)"].fillna(0).sum())
     total_found = int(mapped["Gefunden (physisch)"].fillna(0).sum())
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -204,8 +218,13 @@ if mode.startswith("📊"):
     c5.metric("Recall (physisch)", f"{total_found / total_phys:.0%}" if total_phys else "–")
     st.caption("Zeile anklicken → Review dieses Autos")
     _dfk = st.session_state.get("df_key_n", 0)
+    _ready = [ai_scan_done(r) for r in data]
+    _sty = (df.style
+            .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
+            .apply(lambda row: ["background-color:#d9f2e0" if _ready[row.name] and c != "Recall"
+                                else "" for c in df.columns], axis=1))
     ev = st.dataframe(
-        df.style.background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
+        _sty,
         use_container_width=True, hide_index=True,
         on_select="rerun", selection_mode="single-row", key=f"overview_df_{_dfk}",
     )
@@ -318,8 +337,21 @@ elif mode.startswith("🔍"):
 
     st.caption("Pro DB-Schaden: AI-Vorschlag prüfen (✓ bestätigen), anderen Fund wählen "
                "oder leer lassen. Alles wird geloggt und speist die Metriken.")
-    sel = st.selectbox("Check-in", [r["checkin"] for r in data], key="review_checkin_sel")
-    r = next(x for x in data if x["checkin"] == sel)
+    _by_checkin = {x["checkin"]: x for x in data}
+
+    def _car_label(c: str) -> str:
+        scan = "🟢" if ai_scan_done(_by_checkin[c]) else "🟡"
+        tick = " ✔️" if review_done(load_review(c)) else ""
+        return f"{scan} {c}{tick}"
+
+    st.caption("🟢 = AI-Scan fertig → bereit zum Review & Abhaken · "
+               "🟡 = AI-Scan läuft noch · ✔️ = Auto abgeschlossen")
+    sel = st.selectbox("Check-in", [r["checkin"] for r in data],
+                       key="review_checkin_sel", format_func=_car_label)
+    r = _by_checkin[sel]
+    if not ai_scan_done(r):
+        st.warning("🟡 Für dieses Auto läuft der AI-Scan noch — Vorschläge "
+                   "können sich gleich noch ändern. Grüne Autos zuerst reviewen.")
     key = plate_key(r["plate"])
     truths = {str(t["damage_id"]): t for t in r["truths"]}
     findings = {f["key"]: f for f in r["findings"]}
