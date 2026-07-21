@@ -88,14 +88,14 @@ rows = [{
 } for r in data]
 df = pd.DataFrame(rows)
 
-total_gt = int(df["Schäden (DB)"].sum())
-total_found = int(df["Gefunden"].sum())
+total_phys = int(df["Physisch (DB)"].fillna(0).sum())
+total_found = int(df["Gefunden (physisch)"].fillna(0).sum())
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Check-ins", len(df))
-c2.metric("Schäden in DB", total_gt)
-c3.metric("Gefunden", total_found)
-c4.metric("Zusätzliche AI-Funde", int(df["Zusätzlich (AI)"].sum()))
-c5.metric("Gesamt-Recall", f"{total_found / total_gt:.0%}" if total_gt else "–")
+c2.metric("Physische Schäden (DB)", total_phys)
+c3.metric("Davon gefunden", total_found)
+c4.metric("Neue Schäden (unique)", int(df["Neue Schäden (unique)"].fillna(0).sum()))
+c5.metric("Gesamt-Recall (physisch)", f"{total_found / total_phys:.0%}" if total_phys else "–")
 
 st.dataframe(
     df.style.background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
