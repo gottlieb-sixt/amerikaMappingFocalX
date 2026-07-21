@@ -75,7 +75,7 @@ def _text(t: str) -> dict:
     return {"type": "text", "text": t}
 
 
-def _post_with_retry(api_key: str, body: str, attempts: int = 8) -> str | None:
+def _post_with_retry(api_key: str, body: str, attempts: int = 10) -> str | None:
     """POST an den Gateway; wiederholt bei 429 (Rate-Limit, max 10 parallel) und
     transienten Fehlern mit Backoff. Gibt den content-String zurück oder None.
     Wichtig: None heißt 'KI konnte NICHT urteilen' (→ Heuristik-Fallback), nicht
@@ -90,7 +90,7 @@ def _post_with_retry(api_key: str, body: str, attempts: int = 8) -> str | None:
             return payload["choices"][0]["message"]["content"].strip()
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and i < attempts - 1:
-                time.sleep(min(30, 4 * (i + 1)))   # 4,8,12,…,30s
+                time.sleep(min(60, 5 * (i + 1)))   # 5,10,…,60s
                 continue
             return None
         except Exception:

@@ -21,8 +21,7 @@ from pathlib import Path
 
 from .focalx import FocalxClient
 from .ground_truth import load_truths
-from .judge import judge_group
-from .matcher import candidates_per_truth, heuristic_confident
+from .mapping import run_mapping
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
@@ -121,58 +120,11 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
                 closeups[k] = str(dest.relative_to(ROOT))
                 closeup_path[k] = dest
 
-    # Kandidaten je GT-Schaden (großzügig — die KI sortiert per Bild aus).
-    cand = candidates_per_truth(
-        [(k, f.position, f.part, f.damage_type) for k, f in zip(keys, findings)], truths)
-
-    # Jeder GT-Schaden wird gegen SEINE VOLLEN Kandidaten geprüft — kein
-    # Verbrauchen. Die KI darf MEHRERE Funde bestätigen (ein realer Schaden kann
-    # von FocalX in mehrere Boxen/Fotos aufgeteilt sein). Dadurch geht kein
-    # gültiger Match verloren, nur weil ein anderer GT früher dran war.
-    matched_map: dict[str, list[str]] = {}   # damage_id → [finding keys]
-    pairs = []
-    for t in truths:
-        avail = cand[t.damage_id]
-        if not avail:
-            pairs.append({"damage_id": t.damage_id, "findings": [], "via": None,
-                          "confidence": None, "reason": "keine Kandidaten in der Nähe",
-                          "candidates": []})
-            continue
-        cand_dicts = [{
-            "key": k, "part": by_key[k].part, "type": by_key[k].damage_type,
-            "position": by_key[k].position, "orientation": by_key[k].orientation,
-            "closeup": closeup_path.get(k),
-        } for k, _ in avail]
-        verdict = judge_group(
-            llm_key,
-            {"part": t.part, "damage_type": t.damage_type, "side_attr": t.side_attr,
-             "projection": t.projection, "segment": t.segment, "severity": t.severity},
-            gt_images(key, t.damage_id),
-            cand_dicts,
-        )
-        chosen, via, conf, reason = [], None, None, ""
-        if verdict is None:
-            # Strenger Fallback ohne KI: bester Kandidat nur bei Seite+Typ+Bauteil.
-            best_k, best_s = avail[0]
-            bf = by_key[best_k]
-            if heuristic_confident(bf.position, bf.part, bf.damage_type, t):
-                chosen, via = [best_k], "heuristic"
-                reason = f"Heuristik: Seite+Typ+Bauteil (Score {best_s}, KI n/a)"
-        elif verdict.get("match_keys"):
-            chosen, via = list(verdict["match_keys"]), "ai"
-            conf, reason = verdict.get("confidence"), verdict.get("reason", "")
-        else:
-            via, reason = "ai_rejected", verdict.get("reason", "")
-        if chosen:
-            matched_map[t.damage_id] = chosen
-        pairs.append({
-            "damage_id": t.damage_id, "findings": chosen, "via": via,
-            "confidence": conf, "reason": reason,
-            "candidates": [k for k, _ in avail],
-        })
-
-    matched_truths = set(matched_map.keys())
-    matched_findings = {k for ks in matched_map.values() for k in ks}
+    findings_meta = [{"key": k, "part": f.part, "type": f.damage_type,
+                      "position": f.position, "orientation": f.orientation}
+                     for k, f in zip(keys, findings)]
+    mp = run_mapping(llm_key, findings_meta, truths, key, closeup_path,
+                     log=lambda m: print(f"  {m}", flush=True))
 
     report = {
         "plate": plate,
@@ -182,11 +134,7 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
         "images": len(images),
         "ground_truth_total": len(truths),
         "focalx_findings_total": len(findings),
-        "found": sorted(matched_truths),
-        "missed": sorted(t.damage_id for t in truths if t.damage_id not in matched_truths),
-        "extra_findings": sorted(k for k in keys if k not in matched_findings),
-        "recall": round(len(matched_truths) / len(truths), 3) if truths else None,
-        "pairs": pairs,
+        **mp,
         "findings": [
             {"key": k, "position": f.position, "orientation": f.orientation,
              "part": f.part, "type": f.damage_type, "closeup": closeups.get(k)}
@@ -197,8 +145,10 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / f"{name}.json").write_text(json.dumps(report, indent=2))
     rec = f"{report['recall']:.0%}" if report["recall"] is not None else "– (0 GT)"
-    print(f"  → Recall {rec}: {len(matched_truths)}/{len(truths)} gefunden, "
-          f"{len(report['extra_findings'])} zusätzlich · data/results/{name}.json", flush=True)
+    ph = report.get("physical", {})
+    prec = f"{ph['recall']:.0%}" if ph.get("recall") is not None else "–"
+    print(f"  → Recall {rec} (Zeilen) · {prec} (physisch: {ph.get('gt_found')}/{ph.get('gt_total')}) · "
+          f"{ph.get('extras_unique')} unique Extras · data/results/{name}.json", flush=True)
     return report
 
 
