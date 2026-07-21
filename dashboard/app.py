@@ -276,9 +276,11 @@ elif mode.startswith("🔍"):
     # Klickbare Kennzahlen: Klick schaltet zwischen Bruch und Prozent um.
     st.markdown("""<style>
     [class*="st-key-mtoggle_"] button {
-        font-size: 2.1rem !important; font-weight: 600; line-height: 1.2;
         padding: 0 !important; border: none !important; background: none !important;
         color: inherit !important; min-height: 0 !important;
+    }
+    [class*="st-key-mtoggle_"] button p {
+        font-size: 2.25rem !important; font-weight: 600 !important; line-height: 1.4;
     }
     [class*="st-key-mtoggle_"] button:hover { color: #e8802a !important; }
     </style>""", unsafe_allow_html=True)
