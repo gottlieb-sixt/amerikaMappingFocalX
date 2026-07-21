@@ -45,6 +45,46 @@ Note about the reference photos: they come from different sources —
     NOTHING to do with the damage — ignore those completely."""
 
 
+def _loads_lenient(raw: str):
+    """json.loads mit Reparatur: Gemini hängt gelegentlich ein '}' zu viel an
+    oder lässt schließende Klammern weg — der Inhalt selbst ist vollständig.
+    1) erstes ausbalanciertes {...} extrahieren (schneidet Anhängsel ab),
+    2) bei abgeschnittenem Ende offene Klammern in richtiger Reihenfolge schließen."""
+    try:
+        return json.loads(raw)
+    except Exception:
+        pass
+    start = raw.find("{")
+    if start < 0:
+        raise ValueError("kein JSON-Objekt in der Antwort")
+    stack: list[str] = []
+    in_str = esc = False
+    for i in range(start, len(raw)):
+        ch = raw[i]
+        if esc:
+            esc = False
+            continue
+        if in_str:
+            if ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            if not stack:
+                return json.loads(raw[start:i + 1])
+    tail = raw[start:]
+    if in_str:
+        tail += '"'
+    return json.loads(tail + "".join(reversed(stack)))
+
+
 def _ai_json(llm_key: str, system: str, content: list[dict]) -> dict | None:
     body = json.dumps({
         "model": MODEL,
@@ -61,7 +101,7 @@ def _ai_json(llm_key: str, system: str, content: list[dict]) -> dict | None:
         return None
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     try:
-        obj = json.loads(raw)
+        obj = _loads_lenient(raw)
     except Exception:
         print(f"    [mapping] JSON-Parse-Fehler, Antwort-Ende: …{raw[-160:]!r}",
               file=sys.stderr)
