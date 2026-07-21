@@ -90,10 +90,13 @@ def load_review(checkin: str) -> dict:
     return json.loads(f.read_text()) if f.exists() else {}
 
 
-def save_review(checkin: str, gt_key: str, human: list[str], ai: list[str]) -> None:
+def save_review(checkin: str, gt_key: str, human: list[str], ai: list[str],
+                ai_available: bool = True) -> None:
     REVIEWS.mkdir(parents=True, exist_ok=True)
     rev = load_review(checkin)
-    if set(human) == set(ai):
+    if not ai_available:
+        verdict = "manual_only"       # Auto war ungemappt — zählt nicht gegen die AI
+    elif set(human) == set(ai):
         verdict = "confirmed" if human else "confirmed_empty"
     elif not human:
         verdict = "rejected"          # AI hatte gematcht, Mensch sagt: kein Match
@@ -102,6 +105,7 @@ def save_review(checkin: str, gt_key: str, human: list[str], ai: list[str]) -> N
     else:
         verdict = "corrected"
     rev[gt_key] = {"human": sorted(human), "ai": sorted(ai), "verdict": verdict,
+                   "ai_available": ai_available,
                    "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
     review_file(checkin).write_text(json.dumps(rev, indent=2))
 
@@ -295,7 +299,8 @@ elif mode.startswith("🔍"):
             choice = st.radio("Zuordnung", list(options.keys()), index=idx,
                               key=f"radio_{sel}_{gt_key}", horizontal=False)
             if st.button("💾 Speichern", key=f"save_{sel}_{gt_key}"):
-                save_review(r["checkin"], gt_key, options[choice], ai_keys)
+                save_review(r["checkin"], gt_key, options[choice], ai_keys,
+                            ai_available=not r.get("mapping_pending"))
                 st.rerun()
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -308,6 +313,8 @@ else:
         st.stop()
 
     total = confirmed = confirmed_empty = corrected = rejected = human_added = 0
+    manual_only = 0
+    ai_total = 0                       # nur Reviews, bei denen die AI mitspielte
     gt_matched = 0
     per_checkin = []
     for f in rev_files:
@@ -318,13 +325,17 @@ else:
         c_corr = sum(1 for v in rev.values() if v["verdict"] == "corrected")
         c_rej = sum(1 for v in rev.values() if v["verdict"] == "rejected")
         c_add = sum(1 for v in rev.values() if v["verdict"] == "human_added")
+        c_man = sum(1 for v in rev.values() if v["verdict"] == "manual_only")
         c_match = sum(1 for v in rev.values() if v["human"])
         total += n; confirmed += c_ok; confirmed_empty += c_ok_e
         corrected += c_corr; rejected += c_rej; human_added += c_add
+        manual_only += c_man
+        ai_total += n - c_man
         gt_matched += c_match
         per_checkin.append({
             "Check-in": f.stem, "Reviewt": n,
             "AI korrekt": c_ok + c_ok_e, "Korrigiert": c_corr + c_rej + c_add,
+            "Nur manuell (AI lief nicht)": c_man,
             "FocalX-Treffer (validiert)": c_match,
         })
 
@@ -335,12 +346,14 @@ else:
     c3.metric("Validierter Recall", f"{gt_matched / total:.0%}" if total else "–")
 
     st.header("2 · AI-Mapping-Qualität")
+    st.caption(f"Basis: {ai_total} Reviews mit AI-Vorschlag "
+               f"({manual_only} rein manuelle Mappings auf ungemappten Autos zählen hier nicht).")
     ai_ok = confirmed + confirmed_empty
     manual = corrected + rejected + human_added
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("AI korrekt", ai_ok, help="AI-Vorschlag exakt bestätigt (inkl. korrekt 'kein Match')")
     c2.metric("Manuell nötig", manual, help="korrigiert / abgelehnt / vom Menschen ergänzt")
-    c3.metric("AI-Genauigkeit", f"{ai_ok / total:.0%}" if total else "–")
+    c3.metric("AI-Genauigkeit", f"{ai_ok / ai_total:.0%}" if ai_total else "–")
     c4.metric("Aufschlüsselung", f"✏️{corrected} ✗{rejected} ➕{human_added}")
 
     st.dataframe(pd.DataFrame(per_checkin), use_container_width=True, hide_index=True)
