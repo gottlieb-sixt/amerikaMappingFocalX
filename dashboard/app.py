@@ -215,6 +215,27 @@ if mode.startswith("📊"):
 # ════════════════════════════════════════════════════════════════════════════
 elif mode.startswith("🔍"):
     st.title("🔍 Review / manuelles Mapping")
+
+    # ── Live-Zähler über ALLE Reviews (aktualisiert sich mit jedem Speichern) ──
+    _tot = _fx_ok = _ai_base = _ai_ok = 0
+    if REVIEWS.exists():
+        for _f in REVIEWS.glob("*.json"):
+            for _v in json.loads(_f.read_text()).values():
+                _tot += 1
+                if _v.get("human"):
+                    _fx_ok += 1                       # FocalX hat den Schaden wirklich
+                if _v.get("ai_available", True) and _v.get("verdict") != "manual_only":
+                    _ai_base += 1
+                    if _v.get("verdict") in ("confirmed", "confirmed_empty"):
+                        _ai_ok += 1
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Richtige Mappings FocalX (validiert)", f"{_fx_ok} / {_tot}",
+              help="Reviewte DB-Schäden, für die FocalX laut DIR wirklich einen Fund hat")
+    c2.metric("Richtige Mappings durch AI", f"{_ai_ok} / {_ai_base}",
+              help="AI-Vorschläge, die du exakt bestätigt hast — sinkt relativ, wenn du korrigierst")
+    c3.metric("AI-Genauigkeit", f"{_ai_ok / _ai_base:.0%}" if _ai_base else "–")
+    st.divider()
+
     st.caption("Pro DB-Schaden: AI-Vorschlag prüfen (✓ bestätigen), anderen Fund wählen "
                "oder leer lassen. Alles wird geloggt und speist die Metriken.")
     sel = st.selectbox("Check-in", [r["checkin"] for r in data])
