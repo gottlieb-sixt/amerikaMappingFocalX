@@ -121,20 +121,22 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
                 closeups[k] = str(dest.relative_to(ROOT))
                 closeup_path[k] = dest
 
-    # Kandidaten je GT-Schaden (alle geografisch plausiblen Findings).
+    # Kandidaten je GT-Schaden (großzügig — die KI sortiert per Bild aus).
     cand = candidates_per_truth(
         [(k, f.position, f.part, f.damage_type) for k, f in zip(keys, findings)], truths)
 
-    # GT-Schäden mit dem stärksten Kandidaten zuerst — so greift der Judge
-    # eindeutige Matches ab, bevor er über schwächere entscheidet. Ein Finding
-    # wird nach Zuordnung "verbraucht" (kein Doppel-Zählen über GT-Schäden).
-    order = sorted(truths, key=lambda t: -(cand[t.damage_id][0][1] if cand[t.damage_id] else 0))
-    consumed: set[str] = set()
-    matched_map: dict[str, str] = {}   # damage_id → finding key
+    # Jeder GT-Schaden wird gegen SEINE VOLLEN Kandidaten geprüft — kein
+    # Verbrauchen. Die KI darf MEHRERE Funde bestätigen (ein realer Schaden kann
+    # von FocalX in mehrere Boxen/Fotos aufgeteilt sein). Dadurch geht kein
+    # gültiger Match verloren, nur weil ein anderer GT früher dran war.
+    matched_map: dict[str, list[str]] = {}   # damage_id → [finding keys]
     pairs = []
-    for t in order:
-        avail = [(k, s) for k, s in cand[t.damage_id] if k not in consumed]
+    for t in truths:
+        avail = cand[t.damage_id]
         if not avail:
+            pairs.append({"damage_id": t.damage_id, "findings": [], "via": None,
+                          "confidence": None, "reason": "keine Kandidaten in der Nähe",
+                          "candidates": []})
             continue
         cand_dicts = [{
             "key": k, "part": by_key[k].part, "type": by_key[k].damage_type,
@@ -148,31 +150,29 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
             gt_images(key, t.damage_id),
             cand_dicts,
         )
-        chosen, via, conf, reason = None, None, None, ""
+        chosen, via, conf, reason = [], None, None, ""
         if verdict is None:
-            # Strenger Fallback ohne KI: nur bei Seite+Typ+Bauteil-Match.
+            # Strenger Fallback ohne KI: bester Kandidat nur bei Seite+Typ+Bauteil.
             best_k, best_s = avail[0]
             bf = by_key[best_k]
             if heuristic_confident(bf.position, bf.part, bf.damage_type, t):
-                chosen, via = best_k, "heuristic"
+                chosen, via = [best_k], "heuristic"
                 reason = f"Heuristik: Seite+Typ+Bauteil (Score {best_s}, KI n/a)"
-        elif verdict.get("match_key") and verdict["match_key"] not in consumed:
-            chosen, via = verdict["match_key"], "ai"
+        elif verdict.get("match_keys"):
+            chosen, via = list(verdict["match_keys"]), "ai"
             conf, reason = verdict.get("confidence"), verdict.get("reason", "")
         else:
-            # KI hat geurteilt, aber keinen (freien) Kandidaten als Match bestätigt.
             via, reason = "ai_rejected", verdict.get("reason", "")
         if chosen:
             matched_map[t.damage_id] = chosen
-            consumed.add(chosen)
         pairs.append({
-            "damage_id": t.damage_id, "finding": chosen, "via": via,
+            "damage_id": t.damage_id, "findings": chosen, "via": via,
             "confidence": conf, "reason": reason,
             "candidates": [k for k, _ in avail],
         })
 
     matched_truths = set(matched_map.keys())
-    matched_findings = set(matched_map.values())
+    matched_findings = {k for ks in matched_map.values() for k in ks}
 
     report = {
         "plate": plate,

@@ -29,24 +29,28 @@ is recorded in the fleet database (the ground truth), together with its
 reference photos, and a numbered list of candidate damages that an AI inspection
 (FocalX) reported on the same car, each with its own close-up image.
 
-Your job: decide which candidate — if any — is the SAME physical damage as the
+Your job: select EVERY candidate that shows the SAME physical damage as the
 database damage. Use the IMAGES as the primary evidence; the text fields are
 supporting context.
 
+Important: ONE real-world damage often appears as SEVERAL candidates — e.g. a
+long scratch split into multiple boxes, a dent detected on two overlapping
+photos, or a scratch that crosses a door and the adjacent fender. Include ALL
+candidates that belong to that same physical damage, not just the single best
+one. Be inclusive: if a candidate plausibly shows the described damage on the
+right area of the car, include it.
+
 Rules:
-- Same physical damage means: same location on the car (same vehicle side and
-  panel/area) AND consistent with the same damage event in the photos.
+- Same physical damage means: same area of the car (same vehicle side and
+  panel/region) AND consistent with the same damage in the photos.
 - Allow naming differences ('fender-rear-right' vs 'Rear fender') and type
-  synonyms (scuff ≈ scratch, curb rash ≈ rim scratch).
-- Adjacent parts CAN be the same damage (a scratch crossing door and fender).
-  Different sides of the car can NOT be the same damage.
-- A candidate photo showing a clearly different location, part or damage than the
-  database photo is NOT a match, even if the text labels look similar.
-- Pick AT MOST ONE candidate — the single best physical match. If none truly
-  matches, return null.
+  synonyms (scuff ≈ scratch, curb rash ≈ rim scratch, chip ≈ stone chip).
+- Adjacent parts CAN be the same damage. Only exclude a candidate when it is
+  clearly a DIFFERENT damage or on a clearly different part/side.
+- If no candidate matches, return an empty list.
 
 Output ONLY JSON:
-{"match": <candidate number or null>, "confidence": 0.0-1.0,
+{"matches": [<candidate numbers>], "confidence": 0.0-1.0,
  "reason": "<one sentence citing the visual evidence>"}"""
 
 
@@ -140,8 +144,8 @@ def judge_group(
             content.append(_text(f"(Candidate {i} has no close-up image.)"))
 
     content.append(_text(
-        "Which candidate number is the SAME physical damage as the database "
-        "damage? Output ONLY the JSON object."
+        "Which candidate numbers show the SAME physical damage as the database "
+        "damage? Include every matching candidate. Output ONLY the JSON object."
     ))
 
     body = json.dumps({
@@ -169,18 +173,21 @@ def judge_group(
         verdict = next((v for v in verdict if isinstance(v, dict)), {})
     if not isinstance(verdict, dict):
         return None
-    if "match" not in verdict:
+    if "matches" not in verdict and "match" not in verdict:
         for v in verdict.values():
-            if isinstance(v, dict) and "match" in v:
+            if isinstance(v, dict) and ("matches" in v or "match" in v):
                 verdict = v
                 break
 
-    num = verdict.get("match")
-    match_key = None
-    if isinstance(num, int):
-        match_key = dict(numbered).get(num)
+    nums = verdict.get("matches", verdict.get("match"))
+    if nums is None:
+        nums = []
+    elif isinstance(nums, int):
+        nums = [nums]
+    num_to_key = dict(numbered)
+    match_keys = [num_to_key[n] for n in nums if isinstance(n, int) and n in num_to_key]
     return {
-        "match_key": match_key,
+        "match_keys": match_keys,
         "confidence": verdict.get("confidence"),
         "reason": verdict.get("reason", ""),
     }

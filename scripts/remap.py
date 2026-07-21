@@ -36,12 +36,14 @@ def remap(path: Path, llm_key: str) -> None:
 
     cand = candidates_per_truth(
         [(f["key"], f["position"], f["part"], f["type"]) for f in findings], truths)
-    order = sorted(truths, key=lambda t: -(cand[t.damage_id][0][1] if cand[t.damage_id] else 0))
 
-    consumed, matched_map, pairs = set(), {}, []
-    for t in order:
-        avail = [(k, s) for k, s in cand[t.damage_id] if k not in consumed]
+    matched_map, pairs = {}, []
+    for t in truths:
+        avail = cand[t.damage_id]
         if not avail:
+            pairs.append({"damage_id": t.damage_id, "findings": [], "via": None,
+                          "confidence": None, "reason": "keine Kandidaten in der Nähe",
+                          "candidates": []})
             continue
         cand_dicts = [{
             "key": k, "part": by_key[k]["part"], "type": by_key[k]["type"],
@@ -53,28 +55,28 @@ def remap(path: Path, llm_key: str) -> None:
             {"part": t.part, "damage_type": t.damage_type, "side_attr": t.side_attr,
              "projection": t.projection, "segment": t.segment, "severity": t.severity},
             gt_images(plate_key, t.damage_id), cand_dicts)
-        chosen, via, conf, reason = None, None, None, ""
+        chosen, via, conf, reason = [], None, None, ""
         if verdict is None:
             best_k, best_s = avail[0]
             bf = by_key[best_k]
             if heuristic_confident(bf["position"], bf["part"], bf["type"], t):
-                chosen, via, reason = best_k, "heuristic", f"Heuristik: Seite+Typ+Bauteil (Score {best_s}, KI n/a)"
-        elif verdict.get("match_key") and verdict["match_key"] not in consumed:
-            chosen, via = verdict["match_key"], "ai"
+                chosen, via, reason = [best_k], "heuristic", f"Heuristik: Seite+Typ+Bauteil (Score {best_s}, KI n/a)"
+        elif verdict.get("match_keys"):
+            chosen, via = list(verdict["match_keys"]), "ai"
             conf, reason = verdict.get("confidence"), verdict.get("reason", "")
         else:
             via, reason = "ai_rejected", verdict.get("reason", "")
         if chosen:
             matched_map[t.damage_id] = chosen
-            consumed.add(chosen)
-        pairs.append({"damage_id": t.damage_id, "finding": chosen, "via": via,
+        pairs.append({"damage_id": t.damage_id, "findings": chosen, "via": via,
                       "confidence": conf, "reason": reason, "candidates": [k for k, _ in avail]})
 
     matched_truths = set(matched_map)
+    matched_findings = {k for ks in matched_map.values() for k in ks}
     keys = [f["key"] for f in findings]
     r["found"] = sorted(matched_truths)
     r["missed"] = sorted(t.damage_id for t in truths if t.damage_id not in matched_truths)
-    r["extra_findings"] = sorted(k for k in keys if k not in set(matched_map.values()))
+    r["extra_findings"] = sorted(k for k in keys if k not in matched_findings)
     r["recall"] = round(len(matched_truths) / len(truths), 3) if truths else None
     r["pairs"] = pairs
     path.write_text(json.dumps(r, indent=2))

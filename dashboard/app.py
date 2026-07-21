@@ -110,7 +110,7 @@ r = next(x for x in data if x["checkin"] == sel)
 key = plate_key(r["plate"])
 truths = {str(t["damage_id"]): t for t in r["truths"]}
 findings = {f["key"]: f for f in r["findings"]}
-pair_by_truth = {p["damage_id"]: p for p in r["pairs"] if p.get("finding")}
+pair_by_truth = {p["damage_id"]: p for p in r["pairs"] if p.get("findings")}
 
 category = st.radio(
     "Kategorie",
@@ -125,15 +125,18 @@ cards: list[str] = []
 if category.startswith("✅"):
     for tid in r["found"]:
         t, p = truths.get(tid, {}), pair_by_truth.get(tid)
-        f = findings.get(p["finding"]) if p else None
+        fkeys = p.get("findings", []) if p else []
         if p and p.get("via") == "ai":
             nt = (f"🧠 KI-Match (Konfidenz {p.get('confidence', '–')}) — {p.get('reason', '')}"
-                  + (f"  ·  {len(p.get('candidates', []))} Kandidat(en) geprüft"
+                  + (f"  ·  {len(fkeys)} FocalX-Funde diesem Schaden zugeordnet"
+                     if len(fkeys) > 1 else "")
+                  + (f"  ·  aus {len(p.get('candidates', []))} Kandidaten"
                      if len(p.get("candidates", [])) > 1 else ""))
         else:
             nt = f"⚙️ {p.get('reason') if p else 'Heuristik-Match'}"
-        cards.append(gallery.card(gt_block(key, tid, t, GREEN),
-                                  ai_block(f, BLUE, nt) if f else ""))
+        ai_blocks = [ai_block(findings[k], BLUE, nt if i == 0 else "")
+                     for i, k in enumerate(fkeys) if k in findings]
+        cards.append(gallery.card(gt_block(key, tid, t, GREEN), *ai_blocks))
     if not r["found"]:
         st.warning("Kein DB-Schaden wurde gefunden.")
 elif category.startswith("❌"):

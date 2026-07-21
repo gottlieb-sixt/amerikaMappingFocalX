@@ -169,19 +169,27 @@ def heuristic_confident(position: str, part: str | None, dtype: str, truth: Trut
 def candidates_per_truth(
     findings: list[tuple[str, str, str | None, str]],
     truths: list[Truth],
-    top_n: int = 8,
+    top_n: int = 12,
 ) -> dict[str, list[tuple[str, int]]]:
-    """Pro Ground-Truth-Schaden ALLE geografisch plausiblen Findings (nearness>0),
-    nach Heuristik-Score absteigend, gekappt auf top_n. Das ist der Kandidaten-
-    Pool, den der multimodale Judge bildbasiert bewertet."""
+    """Pro Ground-Truth-Schaden der Kandidaten-Pool für den multimodalen Judge.
+
+    Bewusst großzügig — lieber ein Kandidat zu viel (die KI sortiert per Bild aus)
+    als ein echter Treffer, der nie geprüft wird:
+      * jedes geografisch plausible Finding (nearness>0), plus
+      * ein Sicherheitsnetz: gleiche Bauteilklasse UND gleicher Typ, auch wenn
+        die Geometrie nicht passt (fängt seitenvertauschte DB-/Foto-Angaben ab).
+    Nach Score absteigend, gekappt auf top_n."""
     out: dict[str, list[tuple[str, int]]] = {}
     for t in truths:
         scored = []
         for key, pos, part, dtype in findings:
             f_side, f_zone = finding_side_zone(pos)
-            if nearness(f_side, f_zone, truth_side(t)) <= 0:
-                continue
-            scored.append((key, score(pos, part, dtype, t)))
+            geo = nearness(f_side, f_zone, truth_side(t)) > 0
+            same_kind = (part_class(part) is not None
+                         and part_class(part) == part_class(t.part)
+                         and norm_type(dtype) == norm_type(t.damage_type))
+            if geo or same_kind:
+                scored.append((key, score(pos, part, dtype, t)))
         scored.sort(key=lambda x: -x[1])
         out[t.damage_id] = scored[:top_n]
     return out
