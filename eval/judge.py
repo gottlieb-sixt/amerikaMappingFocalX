@@ -49,6 +49,12 @@ Rules:
   clearly a DIFFERENT damage or on a clearly different part/side.
 - If no candidate matches, return an empty list.
 
+IMPORTANT — the database reference photos are mixed: some show the damage close
+up (2-3 shots), but one may be just a photo of the LICENSE PLATE or the whole
+car for identification, which has NOTHING to do with the damage. IGNORE any
+reference photo that only shows a number plate or a full-car overview — judge
+the match from the actual damage close-ups and the text fields.
+
 Output ONLY JSON:
 {"matches": [<candidate numbers>], "confidence": 0.0-1.0,
  "reason": "<one sentence citing the visual evidence>"}"""
@@ -117,11 +123,13 @@ def judge_group(
             "severity": truth.get("severity"),
         }, indent=2)
     ))
+    # Bis zu 4 Referenzfotos senden — NICHT auf 2 kappen: sonst könnte ein
+    # Kennzeichen-Foto das eigentliche Schadensfoto verdrängen.
     added_truth_img = False
-    for p in truth_images[:2]:
+    for p in truth_images[:4]:
         part = _img_part(p)
         if part:
-            content.append(_text("Database reference photo:"))
+            content.append(_text("Database reference photo (may show the damage — or just a plate/overview, then ignore it):"))
             content.append(part)
             added_truth_img = True
     if not added_truth_img:
