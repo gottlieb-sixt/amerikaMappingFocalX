@@ -79,12 +79,18 @@ def gt_clusters_of(r: dict) -> list[list[str]]:
 
 def ai_choice_for(r: dict, dmg_ids: list[str]) -> list[str]:
     """AI-gematchte Finding-Keys für einen GT-Cluster (leer wenn keins/pending)."""
+    return ai_info_for(r, dmg_ids)[0]
+
+
+def ai_info_for(r: dict, dmg_ids: list[str]) -> tuple[list[str], str | None]:
+    """(gematchte Keys, via) — via=None heißt: KI-Call fehlgeschlagen."""
     ph = r.get("physical") or {}
     fcl = finding_clusters_of(r)
     for cp in ph.get("cluster_pairs") or []:
         if set(cp["damage_ids"]) == set(dmg_ids):
-            return sorted(k for ci in cp.get("finding_clusters", []) for k in fcl[ci])
-    return []
+            keys = sorted(k for ci in cp.get("finding_clusters", []) for k in fcl[ci])
+            return keys, cp.get("via")
+    return [], None
 
 
 META_KEY = "_meta"
@@ -377,7 +383,7 @@ elif mode.startswith("🔍"):
         gt_key = "+".join(sorted(dmg_ids))
         t = truths[dmg_ids[0]]
         rev = review.get(gt_key)
-        ai_keys = ai_choice_for(r, dmg_ids)
+        ai_keys, ai_via = ai_info_for(r, dmg_ids)
         ai_avail = not r.get("mapping_pending")
         excluded = bool(rev and rev["verdict"] == "excluded")
         status = ("🚫" if excluded
@@ -401,9 +407,14 @@ elif mode.startswith("🔍"):
                         f"{t.get('projection')}/{t.get('segment')}"
                         + (f" · {len(dmg_ids)} DB-Einträge" if len(dmg_ids) > 1 else ""))
                     if ai_keys:
-                        st.markdown(f"🧠 **AI:** {', '.join(ai_keys)}")
+                        st.markdown(f"🧠 **AI:** {', '.join(ai_keys)}"
+                                    + (" _(Heuristik-Fallback)_" if ai_via == "heuristic" else ""))
+                    elif not ai_avail:
+                        st.markdown("🧠 **AI:** Mapping lief noch nicht")
+                    elif ai_via is None or ai_via == "heuristic":
+                        st.markdown("🧠 **AI:** ⚠️ kein Urteil — KI-Call fehlgeschlagen (Reparatur-Lauf aktiv)")
                     else:
-                        st.markdown("🧠 **AI:** kein Match" + ("" if ai_avail else " (Mapping lief noch nicht)"))
+                        st.markdown("🧠 **AI:** kein Match")
                     if excluded:
                         st.markdown(f"🚫 **Ausgeschlossen** — {rev.get('reason') or 'ohne Grund'} "
                                     f"(zählt nicht in die Statistik)")
