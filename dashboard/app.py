@@ -42,7 +42,13 @@ if not data:
     st.info("Noch keine Ergebnisse — erst `python -m eval.pipeline …` laufen lassen.")
     st.stop()
 
-mode = st.sidebar.radio("Modus", ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "📈 Metriken"])
+MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "📈 Metriken"]
+# Navigation aus der Übersicht: VOR der Radio-Instanziierung verarbeiten
+# (session_state eines gerenderten Widgets darf nicht mehr geändert werden).
+if "nav_to_review" in st.session_state:
+    st.session_state["mode_radio"] = MODES[1]
+    st.session_state["review_checkin_sel"] = st.session_state.pop("nav_to_review")
+mode = st.sidebar.radio("Modus", MODES, key="mode_radio")
 
 GREEN, RED, ORANGE, BLUE = "#2e9e5b", "#d0433b", "#e8802a", "#3479c4"
 
@@ -171,10 +177,17 @@ if mode.startswith("📊"):
     c3.metric("Davon gefunden", total_found)
     c4.metric("Neue Schäden (unique)", int(mapped["Neue Schäden (unique)"].fillna(0).sum()))
     c5.metric("Recall (physisch)", f"{total_found / total_phys:.0%}" if total_phys else "–")
-    st.dataframe(
+    st.caption("Zeile anklicken → Review dieses Autos")
+    _dfk = st.session_state.get("df_key_n", 0)
+    ev = st.dataframe(
         df.style.background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
         use_container_width=True, hide_index=True,
+        on_select="rerun", selection_mode="single-row", key=f"overview_df_{_dfk}",
     )
+    if ev.selection.rows:
+        st.session_state["nav_to_review"] = data[ev.selection.rows[0]]["checkin"]
+        st.session_state["df_key_n"] = _dfk + 1   # frische Tabelle ohne Alt-Auswahl
+        st.rerun()
 
     st.header("Detail")
     sel = st.selectbox("Check-in", [r["checkin"] for r in data])
@@ -247,7 +260,7 @@ elif mode.startswith("🔍"):
 
     st.caption("Pro DB-Schaden: AI-Vorschlag prüfen (✓ bestätigen), anderen Fund wählen "
                "oder leer lassen. Alles wird geloggt und speist die Metriken.")
-    sel = st.selectbox("Check-in", [r["checkin"] for r in data])
+    sel = st.selectbox("Check-in", [r["checkin"] for r in data], key="review_checkin_sel")
     r = next(x for x in data if x["checkin"] == sel)
     key = plate_key(r["plate"])
     truths = {str(t["damage_id"]): t for t in r["truths"]}
