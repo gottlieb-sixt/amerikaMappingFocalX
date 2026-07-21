@@ -251,57 +251,68 @@ elif mode.startswith("🔍"):
     st.progress(done / len(gcl) if gcl else 1.0,
                 text=f"{done}/{len(gcl)} Schäden reviewt")
 
+    # Sticky-Header: der gerade gescrollte Schaden bleibt oben sichtbar,
+    # bis seine Kachel-Sektion endet (CSS auf st.container(key=…)).
+    st.markdown("""<style>
+    [class*="st-key-sticky_"] {
+        position: sticky; top: 3.2rem; z-index: 99;
+        background: #ffffff; border-bottom: 2px solid #e8802a;
+        box-shadow: 0 4px 10px rgba(0,0,0,.06);
+        padding: 0.35rem 0.5rem 0.45rem 0.5rem; border-radius: 0 0 10px 10px;
+    }
+    </style>""", unsafe_allow_html=True)
+
     for gi, dmg_ids in enumerate(gcl):
         gt_key = "+".join(sorted(dmg_ids))
         t = truths[dmg_ids[0]]
         rev = review.get(gt_key)
         ai_keys = ai_choice_for(r, dmg_ids)
+        ai_avail = not r.get("mapping_pending")
         status = ("✅" if rev and rev["verdict"].startswith("confirmed")
                   else "✏️" if rev else "⬜")
-        title = (f"{status} #{'+#'.join(dmg_ids)} · {t['part']} · {t['damage_type']} · "
-                 f"{t['side_attr']}")
-        with st.expander(title, expanded=(rev is None)):
-            # ── GT oben ──
-            top = st.columns([2, 4])
-            with top[0]:
-                st.markdown(f"**DB-Schaden** · {t.get('severity') or '–'} · "
-                            f"{t.get('projection')}/{t.get('segment')}"
-                            + (f" · {len(dmg_ids)} DB-Einträge" if len(dmg_ids) > 1 else ""))
-                if ai_keys:
-                    st.markdown(f"🧠 **AI-Vorschlag:** {', '.join(ai_keys)}")
-                else:
-                    st.markdown("🧠 **AI-Vorschlag:** kein Match")
-                if rev:
-                    st.markdown(f"📝 Review: `{rev['verdict']}` → {rev['human'] or 'kein Match'}")
-            with top[1]:
-                imgs = [p for did in dmg_ids for p in gt_images(key, did)][:4]
-                if imgs:
-                    ic = st.columns(len(imgs))
-                    for c, img in zip(ic, imgs):
-                        c.image(str(img), use_container_width=True)
-                else:
-                    st.caption("📷 kein DB-Foto")
 
-            # ── Kandidaten als klickbare Kacheln, beste zuerst ──
+        with st.container(border=True, key=f"dmg_{sel}_{gi}"):
+            # ── Sticky GT-Kopf: Infos + Fotos, bleibt beim Scrollen stehen ──
+            with st.container(key=f"sticky_{sel}_{gi}"):
+                head = st.columns([3, 4])
+                with head[0]:
+                    st.markdown(
+                        f"### {status} #{'+#'.join(dmg_ids)} · {t['part']} · "
+                        f"{t['damage_type']}\n"
+                        f"{t['side_attr']} · {t.get('severity') or '–'} · "
+                        f"{t.get('projection')}/{t.get('segment')}"
+                        + (f" · {len(dmg_ids)} DB-Einträge" if len(dmg_ids) > 1 else ""))
+                    if ai_keys:
+                        st.markdown(f"🧠 **AI:** {', '.join(ai_keys)}")
+                    else:
+                        st.markdown("🧠 **AI:** kein Match" + ("" if ai_avail else " (Mapping lief noch nicht)"))
+                    if rev:
+                        st.markdown(f"📝 `{rev['verdict']}` → {', '.join(rev['human']) or 'kein Match'}")
+                with head[1]:
+                    imgs = [pth for did in dmg_ids for pth in gt_images(key, did)][:4]
+                    if imgs:
+                        ic = st.columns(len(imgs))
+                        for c, img in zip(ic, imgs):
+                            c.image(str(img), use_container_width=True)
+                    else:
+                        st.caption("📷 kein DB-Foto")
+
+            # ── ALLE FocalX-Funde als klickbare Kacheln, beste zuerst ──
             truth_obj = Truth(
                 damage_id=dmg_ids[0], part=t["part"], damage_type=t["damage_type"],
                 side_attr=t["side_attr"], projection=t["projection"],
                 segment=t["segment"], severity=t.get("severity"))
             scored = []
             for ci, keys in enumerate(fcl):
-                f0 = findings[keys[0]]
                 sc = max(match_score(findings[k]["position"], findings[k]["part"],
                                      findings[k]["type"], truth_obj) for k in keys)
                 scored.append((sc, ci, keys))
-            scored.sort(key=lambda x: -x[0])
-            show = [x for x in scored if x[0] > 0][:8] or scored[:4]
+            scored.sort(key=lambda x: (-x[0], x[1]))
 
-            ai_avail = not r.get("mapping_pending")
-            st.markdown("**FocalX-Funde — Kachel anklicken zum Mappen:**")
             PER_ROW = 4
-            for start in range(0, len(show), PER_ROW):
+            for start_i in range(0, len(scored), PER_ROW):
                 cols = st.columns(PER_ROW)
-                for col, (sc, ci, keys) in zip(cols, show[start:start + PER_ROW]):
+                for col, (sc, ci, keys) in zip(cols, scored[start_i:start_i + PER_ROW]):
                     f0 = findings[keys[0]]
                     is_ai = bool(set(keys) & set(ai_keys))
                     is_current = rev is not None and set(rev["human"]) == set(keys)
