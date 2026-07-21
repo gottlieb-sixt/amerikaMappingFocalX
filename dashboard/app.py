@@ -253,21 +253,36 @@ elif mode.startswith("🔍"):
 
     # Sticky-Header: der gerade gescrollte Schaden bleibt oben sichtbar,
     # bis seine Kachel-Sektion endet (CSS auf st.container(key=…)).
-    st.markdown("""<style>
-    /* Streamlits Border-Container clippen mit overflow:hidden — das bricht
-       position:sticky. Für die Schadens-Container aufheben (ganze Kette). */
-    [class*="st-key-dmg_"],
-    [class*="st-key-dmg_"] > div,
-    [class*="st-key-dmg_"] div[data-testid="stVerticalBlock"] {
-        overflow: visible !important;
+    # Sticky per JS: findet die Marker in den GT-Karten, macht deren Container
+    # sticky und schaltet overflow:hidden in der Eltern-Kette frei. Läuft im
+    # Intervall, damit es Streamlits Re-Renders übersteht.
+    components.html("""<script>
+    const doc = window.parent.document;
+    function stickify() {
+      doc.querySelectorAll('.gt-sticky-marker').forEach(m => {
+        const block = m.closest('div[data-testid="stVerticalBlock"]');
+        if (!block || block.dataset.stickified === '1') return;
+        block.dataset.stickified = '1';
+        Object.assign(block.style, {
+          position: 'sticky', top: '3.4rem', zIndex: '999',
+          background: '#ffffff', borderBottom: '2px solid #e8802a',
+          boxShadow: '0 4px 10px rgba(0,0,0,.08)',
+          padding: '0.3rem 0.5rem 0.4rem 0.5rem',
+          borderRadius: '0 0 10px 10px'
+        });
+        let a = block.parentElement;
+        while (a && a.tagName !== 'SECTION' && !(a.dataset && a.dataset.testid === 'stMain')) {
+          const cs = getComputedStyle(a);
+          if (cs.overflow !== 'visible' || cs.overflowY !== 'visible') {
+            a.style.overflow = 'visible';
+          }
+          a = a.parentElement;
+        }
+      });
     }
-    [class*="st-key-sticky_"] {
-        position: -webkit-sticky; position: sticky; top: 3.75rem; z-index: 999;
-        background: #ffffff; border-bottom: 2px solid #e8802a;
-        box-shadow: 0 4px 10px rgba(0,0,0,.08);
-        padding: 0.35rem 0.5rem 0.45rem 0.5rem; border-radius: 0 0 10px 10px;
-    }
-    </style>""", unsafe_allow_html=True)
+    stickify();
+    setInterval(stickify, 800);
+    </script>""", height=0)
 
     for gi, dmg_ids in enumerate(gcl):
         gt_key = "+".join(sorted(dmg_ids))
@@ -281,6 +296,7 @@ elif mode.startswith("🔍"):
         with st.container(border=True, key=f"dmg_{sel}_{gi}"):
             # ── Sticky GT-Kopf: Infos + Fotos, bleibt beim Scrollen stehen ──
             with st.container(key=f"sticky_{sel}_{gi}"):
+                st.markdown('<span class="gt-sticky-marker"></span>', unsafe_allow_html=True)
                 head = st.columns([3, 4])
                 with head[0]:
                     st.markdown(
