@@ -1,13 +1,22 @@
 """FocalX evaluation dashboard.
 
 Run:  .venv/bin/streamlit run dashboard/app.py
-Liest alle data/results/<CHECKIN>.json der Pipeline; Ground-Truth-Fotos aus
-data/gt_photos/ (scripts/download_gt_photos.py --refetch).
+
+Drei Modi (Sidebar):
+  Ergebnisse   — Übersicht + Detailkarten (zoombare Galerie)
+  Review       — manuelles Mapping: GT oben, FocalX-Funde sortiert darunter;
+                 AI-Vorschlag bestätigen (✓), korrigieren oder leer lassen.
+                 Jede Entscheidung wird nach data/reviews/ geloggt.
+  Metriken     — zwei getrennte Messgrößen aus den Reviews:
+                 (1) FocalX-Detection (validierte Überschneidung mit GT)
+                 (2) AI-Mapping-Qualität (bestätigt vs. korrigiert)
 """
 from __future__ import annotations
 
 import json
 import re
+import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -17,11 +26,14 @@ import streamlit.components.v1 as components
 import gallery
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from eval.matcher import Truth, score as match_score  # noqa: E402
+
 RESULTS = ROOT / "data" / "results"
 GT_PHOTOS = ROOT / "data" / "gt_photos"
+REVIEWS = ROOT / "data" / "reviews"
 
 st.set_page_config(page_title="FocalX Evaluation", page_icon="🚗", layout="wide")
-st.title("🚗 FocalX Detection Evaluation")
 
 reports = sorted(RESULTS.glob("*.json"))
 data = [json.loads(p.read_text()) for p in reports]
@@ -30,11 +42,12 @@ if not data:
     st.info("Noch keine Ergebnisse — erst `python -m eval.pipeline …` laufen lassen.")
     st.stop()
 
-
-# ── Hilfen ──────────────────────────────────────────────────────────────────
+mode = st.sidebar.radio("Modus", ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "📈 Metriken"])
 
 GREEN, RED, ORANGE, BLUE = "#2e9e5b", "#d0433b", "#e8802a", "#3479c4"
 
+
+# ── Hilfen ──────────────────────────────────────────────────────────────────
 
 def plate_key(plate: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", plate).upper()
@@ -42,6 +55,55 @@ def plate_key(plate: str) -> str:
 
 def gt_images(key: str, damage_id: str) -> list[Path]:
     return sorted((GT_PHOTOS / key).glob(f"{damage_id}_*.jpg"))
+
+
+def finding_clusters_of(r: dict) -> list[list[str]]:
+    ph = r.get("physical") or {}
+    if ph.get("finding_clusters"):
+        return ph["finding_clusters"]
+    return [[f["key"]] for f in r["findings"]]
+
+
+def gt_clusters_of(r: dict) -> list[list[str]]:
+    ph = r.get("physical") or {}
+    if ph.get("gt_clusters"):
+        return ph["gt_clusters"]
+    return [[str(t["damage_id"])] for t in r["truths"]]
+
+
+def ai_choice_for(r: dict, dmg_ids: list[str]) -> list[str]:
+    """AI-gematchte Finding-Keys für einen GT-Cluster (leer wenn keins/pending)."""
+    ph = r.get("physical") or {}
+    fcl = finding_clusters_of(r)
+    for cp in ph.get("cluster_pairs") or []:
+        if set(cp["damage_ids"]) == set(dmg_ids):
+            return sorted(k for ci in cp.get("finding_clusters", []) for k in fcl[ci])
+    return []
+
+
+def review_file(checkin: str) -> Path:
+    return REVIEWS / f"{checkin}.json"
+
+
+def load_review(checkin: str) -> dict:
+    f = review_file(checkin)
+    return json.loads(f.read_text()) if f.exists() else {}
+
+
+def save_review(checkin: str, gt_key: str, human: list[str], ai: list[str]) -> None:
+    REVIEWS.mkdir(parents=True, exist_ok=True)
+    rev = load_review(checkin)
+    if set(human) == set(ai):
+        verdict = "confirmed" if human else "confirmed_empty"
+    elif not human:
+        verdict = "rejected"          # AI hatte gematcht, Mensch sagt: kein Match
+    elif not ai:
+        verdict = "human_added"       # AI leer, Mensch hat gemappt
+    else:
+        verdict = "corrected"
+    rev[gt_key] = {"human": sorted(human), "ai": sorted(ai), "verdict": verdict,
+                   "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+    review_file(checkin).write_text(json.dumps(rev, indent=2))
 
 
 def gt_block(key: str, tid: str, t: dict, accent: str) -> str:
@@ -72,80 +134,213 @@ def ai_block(f: dict, accent: str, note_text: str = "") -> str:
     return gallery.column(info, row, gallery.note(note_text))
 
 
-# ── Übersicht ───────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+if mode.startswith("📊"):
+    st.title("🚗 FocalX Detection Evaluation")
+    st.header("Übersicht")
+    rows = [{
+        "Kennzeichen": r["plate"],
+        "Check-in": r["checkin"].split("__")[1],
+        "Schäden (DB)": r["ground_truth_total"],
+        "Physisch (DB)": (r.get("physical") or {}).get("gt_total"),
+        "Gefunden (physisch)": (r.get("physical") or {}).get("gt_found"),
+        "Recall": (r.get("physical") or {}).get("recall", r["recall"]),
+        "Neue Schäden (unique)": (r.get("physical") or {}).get("extras_unique",
+                                                               len(r["extra_findings"])),
+        "Status": "⏳ Mapping ausstehend" if r.get("mapping_pending") else "gemappt",
+        "Zeitpunkt": r["timestamp"],
+    } for r in data]
+    df = pd.DataFrame(rows)
+    mapped = df[df["Status"] == "gemappt"]
+    total_phys = int(mapped["Physisch (DB)"].fillna(0).sum())
+    total_found = int(mapped["Gefunden (physisch)"].fillna(0).sum())
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Check-ins", len(df))
+    c2.metric("Physische Schäden (DB, gemappt)", total_phys)
+    c3.metric("Davon gefunden", total_found)
+    c4.metric("Neue Schäden (unique)", int(mapped["Neue Schäden (unique)"].fillna(0).sum()))
+    c5.metric("Recall (physisch)", f"{total_found / total_phys:.0%}" if total_phys else "–")
+    st.dataframe(
+        df.style.background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
+        use_container_width=True, hide_index=True,
+    )
 
-st.header("Übersicht")
-rows = [{
-    "Kennzeichen": r["plate"],
-    "Check-in": r["checkin"].split("__")[1],
-    "Schäden (DB)": r["ground_truth_total"],
-    "Physisch (DB)": (r.get("physical") or {}).get("gt_total"),
-    "Gefunden (physisch)": (r.get("physical") or {}).get("gt_found"),
-    "Recall": (r.get("physical") or {}).get("recall", r["recall"]),
-    "Recall (Zeilen)": r["recall"],
-    "Neue Schäden (unique)": (r.get("physical") or {}).get("extras_unique", len(r["extra_findings"])),
-    "Zeitpunkt": r["timestamp"],
-} for r in data]
-df = pd.DataFrame(rows)
+    st.header("Detail")
+    sel = st.selectbox("Check-in", [r["checkin"] for r in data])
+    r = next(x for x in data if x["checkin"] == sel)
+    key = plate_key(r["plate"])
+    truths = {str(t["damage_id"]): t for t in r["truths"]}
+    findings = {f["key"]: f for f in r["findings"]}
+    pair_by_truth = {p["damage_id"]: p for p in r.get("pairs", []) if p.get("findings")}
 
-total_phys = int(df["Physisch (DB)"].fillna(0).sum())
-total_found = int(df["Gefunden (physisch)"].fillna(0).sum())
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Check-ins", len(df))
-c2.metric("Physische Schäden (DB)", total_phys)
-c3.metric("Davon gefunden", total_found)
-c4.metric("Neue Schäden (unique)", int(df["Neue Schäden (unique)"].fillna(0).sum()))
-c5.metric("Gesamt-Recall (physisch)", f"{total_found / total_phys:.0%}" if total_phys else "–")
+    category = st.radio(
+        "Kategorie",
+        [f"✅ Gefunden ({len(r['found'])})",
+         f"❌ Nicht gefunden ({len(r['missed'])})",
+         f"➕ Zusätzliche AI-Funde ({len(r['extra_findings'])})"],
+        horizontal=True, label_visibility="collapsed",
+    )
+    st.caption("Klick auf ein Bild öffnet es groß — Mausrad zoomt, Ziehen verschiebt, Esc schließt.")
 
-st.dataframe(
-    df.style.background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
-    use_container_width=True, hide_index=True,
-)
+    cards: list[str] = []
+    if category.startswith("✅"):
+        for tid in r["found"]:
+            t, p = truths.get(tid, {}), pair_by_truth.get(tid)
+            fkeys = p.get("findings", []) if p else []
+            triage = {"auto_match": "🟢 auto_match", "review": "🟡 review"}.get(
+                (p or {}).get("triage") or "", "")
+            if p and p.get("via") == "ai":
+                nt = f"🧠 KI-Match ({p.get('confidence', '–')}) {triage} — {p.get('reason', '')}"
+            else:
+                nt = f"⚙️ {p.get('reason') if p else 'Heuristik-Match'} {triage}"
+            ai_blocks = [ai_block(findings[k], BLUE, nt if i == 0 else "")
+                         for i, k in enumerate(fkeys) if k in findings]
+            cards.append(gallery.card(gt_block(key, tid, t, GREEN), *ai_blocks))
+        if not r["found"]:
+            st.warning("Kein DB-Schaden wurde gefunden (oder Mapping ausstehend).")
+    elif category.startswith("❌"):
+        for tid in r["missed"]:
+            cards.append(gallery.card(gt_block(key, tid, truths.get(tid, {}), RED)))
+        if not r["missed"]:
+            st.success("Alle DB-Schäden wurden gefunden.")
+    else:
+        for k in r["extra_findings"]:
+            cards.append(gallery.card(ai_block(findings.get(k, {}), ORANGE)))
+    components.html(gallery.render(cards), height=820, scrolling=True)
 
-# ── Detail pro Check-in ─────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+elif mode.startswith("🔍"):
+    st.title("🔍 Review / manuelles Mapping")
+    st.caption("Pro DB-Schaden: AI-Vorschlag prüfen (✓ bestätigen), anderen Fund wählen "
+               "oder leer lassen. Alles wird geloggt und speist die Metriken.")
+    sel = st.selectbox("Check-in", [r["checkin"] for r in data])
+    r = next(x for x in data if x["checkin"] == sel)
+    key = plate_key(r["plate"])
+    truths = {str(t["damage_id"]): t for t in r["truths"]}
+    findings = {f["key"]: f for f in r["findings"]}
+    fcl = finding_clusters_of(r)
+    gcl = gt_clusters_of(r)
+    review = load_review(r["checkin"])
 
-st.header("Detail")
-sel = st.selectbox("Check-in", [r["checkin"] for r in data])
-r = next(x for x in data if x["checkin"] == sel)
-key = plate_key(r["plate"])
-truths = {str(t["damage_id"]): t for t in r["truths"]}
-findings = {f["key"]: f for f in r["findings"]}
-pair_by_truth = {p["damage_id"]: p for p in r["pairs"] if p.get("findings")}
+    done = sum(1 for ids in gcl if "+".join(sorted(ids)) in review)
+    st.progress(done / len(gcl) if gcl else 1.0,
+                text=f"{done}/{len(gcl)} Schäden reviewt")
 
-category = st.radio(
-    "Kategorie",
-    [f"✅ Gefunden ({len(r['found'])})",
-     f"❌ Nicht gefunden ({len(r['missed'])})",
-     f"➕ Zusätzliche AI-Funde ({len(r['extra_findings'])})"],
-    horizontal=True, label_visibility="collapsed",
-)
-st.caption("Klick auf ein Bild öffnet es groß — Mausrad zoomt, Ziehen verschiebt, Esc schließt.")
+    for gi, dmg_ids in enumerate(gcl):
+        gt_key = "+".join(sorted(dmg_ids))
+        t = truths[dmg_ids[0]]
+        rev = review.get(gt_key)
+        ai_keys = ai_choice_for(r, dmg_ids)
+        status = ("✅" if rev and rev["verdict"].startswith("confirmed")
+                  else "✏️" if rev else "⬜")
+        title = (f"{status} #{'+#'.join(dmg_ids)} · {t['part']} · {t['damage_type']} · "
+                 f"{t['side_attr']}")
+        with st.expander(title, expanded=(rev is None)):
+            # ── GT oben ──
+            top = st.columns([2, 4])
+            with top[0]:
+                st.markdown(f"**DB-Schaden** · {t.get('severity') or '–'} · "
+                            f"{t.get('projection')}/{t.get('segment')}"
+                            + (f" · {len(dmg_ids)} DB-Einträge" if len(dmg_ids) > 1 else ""))
+                if ai_keys:
+                    st.markdown(f"🧠 **AI-Vorschlag:** {', '.join(ai_keys)}")
+                else:
+                    st.markdown("🧠 **AI-Vorschlag:** kein Match")
+                if rev:
+                    st.markdown(f"📝 Review: `{rev['verdict']}` → {rev['human'] or 'kein Match'}")
+            with top[1]:
+                imgs = [p for did in dmg_ids for p in gt_images(key, did)][:4]
+                if imgs:
+                    ic = st.columns(len(imgs))
+                    for c, img in zip(ic, imgs):
+                        c.image(str(img), use_container_width=True)
+                else:
+                    st.caption("📷 kein DB-Foto")
 
-cards: list[str] = []
-if category.startswith("✅"):
-    for tid in r["found"]:
-        t, p = truths.get(tid, {}), pair_by_truth.get(tid)
-        fkeys = p.get("findings", []) if p else []
-        if p and p.get("via") == "ai":
-            nt = (f"🧠 KI-Match (Konfidenz {p.get('confidence', '–')}) — {p.get('reason', '')}"
-                  + (f"  ·  {len(fkeys)} FocalX-Funde diesem Schaden zugeordnet"
-                     if len(fkeys) > 1 else "")
-                  + (f"  ·  aus {len(p.get('candidates', []))} Kandidaten"
-                     if len(p.get("candidates", [])) > 1 else ""))
-        else:
-            nt = f"⚙️ {p.get('reason') if p else 'Heuristik-Match'}"
-        ai_blocks = [ai_block(findings[k], BLUE, nt if i == 0 else "")
-                     for i, k in enumerate(fkeys) if k in findings]
-        cards.append(gallery.card(gt_block(key, tid, t, GREEN), *ai_blocks))
-    if not r["found"]:
-        st.warning("Kein DB-Schaden wurde gefunden.")
-elif category.startswith("❌"):
-    for tid in r["missed"]:
-        cards.append(gallery.card(gt_block(key, tid, truths.get(tid, {}), RED)))
-    if not r["missed"]:
-        st.success("Alle DB-Schäden wurden gefunden.")
+            # ── Kandidaten unten, sortiert nach Passgenauigkeit ──
+            truth_obj = Truth(
+                damage_id=dmg_ids[0], part=t["part"], damage_type=t["damage_type"],
+                side_attr=t["side_attr"], projection=t["projection"],
+                segment=t["segment"], severity=t.get("severity"))
+            scored = []
+            for ci, keys in enumerate(fcl):
+                f0 = findings[keys[0]]
+                s = max(match_score(findings[k]["position"], findings[k]["part"],
+                                    findings[k]["type"], truth_obj) for k in keys)
+                scored.append((s, ci, keys))
+            scored.sort(key=lambda x: -x[0])
+            show = [x for x in scored if x[0] > 0][:8] or scored[:4]
+
+            st.markdown("**FocalX-Funde (beste zuerst):**")
+            cols = st.columns(len(show)) if show else []
+            options = {"— kein Match —": []}
+            for col, (s, ci, keys) in zip(cols, show):
+                f0 = findings[keys[0]]
+                label = f"{'+'.join(keys)} · {f0['part']}·{f0['type']} (Score {s})"
+                options[label] = list(keys)
+                with col:
+                    cu = ROOT / f0["closeup"] if f0.get("closeup") else None
+                    if cu and cu.exists():
+                        st.image(str(cu), use_container_width=True)
+                    st.caption(f"**{'+'.join(keys)}** {f0['part']}·{f0['type']} · Score {s}"
+                               + (" · 🧠 AI" if set(keys) & set(ai_keys) else ""))
+
+            # Vorauswahl: bisheriges Review > AI-Vorschlag > kein Match
+            pre = rev["human"] if rev else ai_keys
+            idx = 0
+            for i, (lbl, keys) in enumerate(options.items()):
+                if set(keys) == set(pre) and keys:
+                    idx = i
+                    break
+            choice = st.radio("Zuordnung", list(options.keys()), index=idx,
+                              key=f"radio_{sel}_{gt_key}", horizontal=False)
+            if st.button("💾 Speichern", key=f"save_{sel}_{gt_key}"):
+                save_review(r["checkin"], gt_key, options[choice], ai_keys)
+                st.rerun()
+
+# ════════════════════════════════════════════════════════════════════════════
 else:
-    for k in r["extra_findings"]:
-        cards.append(gallery.card(ai_block(findings.get(k, {}), ORANGE)))
+    st.title("📈 Metriken")
+    st.caption("Zwei getrennte Messgrößen — beide auf Basis deiner Reviews (Gold-Standard).")
+    rev_files = sorted(REVIEWS.glob("*.json")) if REVIEWS.exists() else []
+    if not rev_files:
+        st.info("Noch keine Reviews — erst im Review-Modus Schäden bestätigen/mappen.")
+        st.stop()
 
-components.html(gallery.render(cards), height=820, scrolling=True)
+    total = confirmed = confirmed_empty = corrected = rejected = human_added = 0
+    gt_matched = 0
+    per_checkin = []
+    for f in rev_files:
+        rev = json.loads(f.read_text())
+        n = len(rev)
+        c_ok = sum(1 for v in rev.values() if v["verdict"] == "confirmed")
+        c_ok_e = sum(1 for v in rev.values() if v["verdict"] == "confirmed_empty")
+        c_corr = sum(1 for v in rev.values() if v["verdict"] == "corrected")
+        c_rej = sum(1 for v in rev.values() if v["verdict"] == "rejected")
+        c_add = sum(1 for v in rev.values() if v["verdict"] == "human_added")
+        c_match = sum(1 for v in rev.values() if v["human"])
+        total += n; confirmed += c_ok; confirmed_empty += c_ok_e
+        corrected += c_corr; rejected += c_rej; human_added += c_add
+        gt_matched += c_match
+        per_checkin.append({
+            "Check-in": f.stem, "Reviewt": n,
+            "AI korrekt": c_ok + c_ok_e, "Korrigiert": c_corr + c_rej + c_add,
+            "FocalX-Treffer (validiert)": c_match,
+        })
+
+    st.header("1 · FocalX-Detection (validiert)")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Reviewte DB-Schäden", total)
+    c2.metric("Von FocalX gefunden (validiert)", gt_matched)
+    c3.metric("Validierter Recall", f"{gt_matched / total:.0%}" if total else "–")
+
+    st.header("2 · AI-Mapping-Qualität")
+    ai_ok = confirmed + confirmed_empty
+    manual = corrected + rejected + human_added
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("AI korrekt", ai_ok, help="AI-Vorschlag exakt bestätigt (inkl. korrekt 'kein Match')")
+    c2.metric("Manuell nötig", manual, help="korrigiert / abgelehnt / vom Menschen ergänzt")
+    c3.metric("AI-Genauigkeit", f"{ai_ok / total:.0%}" if total else "–")
+    c4.metric("Aufschlüsselung", f"✏️{corrected} ✗{rejected} ➕{human_added}")
+
+    st.dataframe(pd.DataFrame(per_checkin), use_container_width=True, hide_index=True)

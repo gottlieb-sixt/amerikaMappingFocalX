@@ -203,30 +203,79 @@ def cluster_truths(llm_key: str, truths: list[Truth], gt_key: str) -> list[list[
 MAP_PROMPT = """\
 You are a meticulous vehicle-damage adjudicator. You get ONE physical damage
 recorded in the fleet database (possibly recorded multiple times — all its
-records and photos are shown), and a numbered list of candidate damages that an
-AI inspection (FocalX) reported on the same car (each candidate may consist of
-several detections of the same damage, with their close-up images).
-
-Select EVERY candidate that shows the SAME physical damage as the database
-damage. Use the IMAGES as primary evidence.
+records and reference photos are shown), and a numbered list of CANDIDATE
+damages that an AI inspection (FocalX) reported on the same car. Each candidate
+may consist of several detections of the same damage, with close-up images.
+Decide for EACH candidate independently whether it shows the SAME physical
+damage as the database damage. Do not infer transitively across candidates.
+Multiple photos per damage = same damage, different angles/lighting.
 
 """ + PHOTO_CONTEXT + """
 
-Decision standard (PANEL level, not pixel level):
-- A candidate MATCHES when it shows the same TYPE of damage on the same PANEL
-  and SIDE of the car as the database damage. The reference photos are often
-  old, taken from other angles/lighting, or low-quality scanner frames — do NOT
-  require the marks to look pixel-identical.
-- Only exclude a candidate when the images CLEARLY prove it is a different
-  damage: a different panel/side, or both damages visible as distinct marks in
-  the same photo, or an obviously different damage category.
-- Allow naming differences and type synonyms (scuff ≈ scratch, curb rash ≈ rim
-  scratch, chip ≈ stone chip). Adjacent parts CAN be the same damage.
-- If no candidate matches, return an empty list.
+ANNOTATION HANDLING
+Photos may contain highlight boxes, arrows or other overlays marking the area
+of interest. Treat these as pointers only — do not interpret box borders,
+overlay edges, or creases at an annotation boundary as damage. Photos may also
+contain physical inspection aids: rulers, tape measures, a hand or fingers
+pointing at or holding near the area, and hand-drawn chalk/marker circles,
+arrows or lines. These are artifacts of the inspection process, not damage and
+not comparison features. Their presence — including in one photo set but not
+the other — MUST NOT drive a "Not Duplicate" verdict. Compare only the
+underlying damage (location, sub-location, shape signature).
 
-Output ONLY JSON:
-{"matches": [<candidate numbers>], "confidence": 0.0-1.0,
- "reason": "<one sentence citing the visual evidence>"}"""
+PER-DAMAGE ASSESSMENT
+First extract, for the database damage and for each candidate:
+- location: vehicle part + position (e.g. "front bumper, lower right")
+- type: scratch | gouge | dent | crack | transfer_mark | paint_chip | tear | other
+- severity: minor | moderate | severe
+- shape_signature: 2-3 short phrases describing distinctive geometry
+- photo_quality: usable | partial | unusable (one-line reason if not usable)
+
+COMPARISON (per candidate, independently)
+Match criteria in order of weight:
+1. Location on the vehicle (part + position) — must be the same area, not just
+   the same part.
+2. Shape signature — the primary discriminator.
+3. Severity and approximate dimensions.
+4. Damage type. Cause and colour are NOT criteria; lighting, glare and white
+   balance frequently differ between photos.
+
+ANGLE-INDUCED SHAPE COLLAPSE: when one photo is taken from a low or oblique
+angle, multiple parallel marks may visually collapse into a single diagonal
+line. If the sub-location is consistent and the overall extent plausible,
+treat this as a distorting factor and downgrade confidence to Medium — never
+return "Not Duplicate" on this effect alone. Strong ambient reflections
+combined with a low/oblique angle reduce the discriminatory weight of shape
+signatures from that photo.
+
+CONFIDENCE ANCHORS
+- High: location matches precisely AND shape signatures match AND severity is
+  consistent; no contradicting features.
+- Medium: location and type match and the shape is plausibly the same, but a
+  distorting factor (poor light, glare, divergent angle, annotation overlay,
+  low-res scanner frame) could explain an apparent geometric difference.
+- Hard exclusion: a CLEARLY different sub-location overrides any quality
+  downgrade — verdict "Not Duplicate" with High confidence.
+- If a photo set is unusable or the relevant body part is not visible in both
+  sets: verdict "Insufficient Evidence" with confidence Low.
+
+OUTPUT — return ONLY valid JSON, no preamble, no markdown:
+{
+ "db_damage": {"location": "...", "type": "...", "severity": "...",
+               "shape_signature": "...", "photo_quality": "usable"},
+ "candidates": [
+   {"id": 1, "location": "...", "type": "...", "severity": "...",
+    "shape_signature": "...", "photo_quality": "usable",
+    "verdict": "Duplicate | Not Duplicate | Insufficient Evidence",
+    "confidence": "Low | Medium | High",
+    "reason": "<one sentence citing the decisive features>"}
+ ],
+ "matches": [<ids with verdict Duplicate>],
+ "recommendation": "auto_match | review | not_duplicate"
+}
+recommendation rules: auto_match = at least one Duplicate at High confidence
+and no Insufficient Evidence; review = any Duplicate only at Medium/Low OR any
+Insufficient Evidence; not_duplicate = every candidate is Not Duplicate."""
 
 
 def gt_images(key: str, damage_id: str) -> list[Path]:
@@ -266,7 +315,8 @@ def run_mapping(llm_key: str, findings_meta: list[dict], truths: list[Truth],
                     cand_cluster_idx.append(ci)
         if not cand_cluster_idx:
             cluster_pairs.append({"gt_cluster": gi, "damage_ids": dmg_ids, "finding_clusters": [],
-                                  "via": None, "confidence": None,
+                                  "via": None, "confidence": None, "triage": "not_duplicate",
+                                  "verdicts": [],
                                   "reason": "keine Kandidaten in der Nähe", "candidates": []})
             continue
 
@@ -314,6 +364,7 @@ def run_mapping(llm_key: str, findings_meta: list[dict], truths: list[Truth],
         time.sleep(AI_PAUSE_S)
 
         chosen_ci, via, conf, reason = [], None, None, ""
+        verdicts, triage = [], None
         if obj is None:
             # Strenger Heuristik-Fallback auf dem besten Kandidaten-Cluster.
             best_ci = cand_cluster_idx[0]
@@ -321,18 +372,54 @@ def run_mapping(llm_key: str, findings_meta: list[dict], truths: list[Truth],
             if heuristic_confident(bf["position"], bf["part"], bf["type"], rep):
                 chosen_ci, via = [best_ci], "heuristic"
                 reason = "Heuristik: Seite+Typ+Bauteil (KI n/a)"
+                triage = "review"
         else:
-            nums = obj.get("matches", obj.get("match"))
-            nums = [nums] if isinstance(nums, int) else (nums or [])
-            chosen_ci = [cand_cluster_idx[n - 1] for n in nums
-                         if isinstance(n, int) and 1 <= n <= len(cand_cluster_idx)]
+            entries = obj.get("candidates") or []
+            any_insuff, best_dup_conf = False, None
+            for e in entries:
+                n = e.get("id")
+                if not (isinstance(n, int) and 1 <= n <= len(cand_cluster_idx)):
+                    continue
+                ci = cand_cluster_idx[n - 1]
+                v = str(e.get("verdict") or "").strip().lower()
+                c = str(e.get("confidence") or "").strip().lower()
+                verdicts.append({"finding_cluster": ci, "verdict": e.get("verdict"),
+                                 "confidence": e.get("confidence"),
+                                 "reason": e.get("reason", ""),
+                                 "location": e.get("location"),
+                                 "shape_signature": e.get("shape_signature"),
+                                 "photo_quality": e.get("photo_quality")})
+                if v == "duplicate":
+                    chosen_ci.append(ci)
+                    if best_dup_conf != "high":
+                        best_dup_conf = c if best_dup_conf is None or c == "high" else best_dup_conf
+                elif v.startswith("insufficient"):
+                    any_insuff = True
+            if not entries:
+                # Fallback: altes Format {"matches": [...]}
+                nums = obj.get("matches", obj.get("match"))
+                nums = [nums] if isinstance(nums, int) else (nums or [])
+                chosen_ci = [cand_cluster_idx[n - 1] for n in nums
+                             if isinstance(n, int) and 1 <= n <= len(cand_cluster_idx)]
             via = "ai" if chosen_ci else "ai_rejected"
-            conf, reason = obj.get("confidence"), obj.get("reason", "")
+            conf = obj.get("confidence") or best_dup_conf
+            dup_reasons = [x["reason"] for x in verdicts
+                           if str(x["verdict"]).lower() == "duplicate" and x.get("reason")]
+            reason = dup_reasons[0] if dup_reasons else obj.get("reason", "")
+            triage = obj.get("recommendation")
+            if triage not in ("auto_match", "review", "not_duplicate"):
+                if chosen_ci and best_dup_conf == "high" and not any_insuff:
+                    triage = "auto_match"
+                elif chosen_ci or any_insuff:
+                    triage = "review"
+                else:
+                    triage = "not_duplicate"
         if chosen_ci:
             matched_fc[gi] = chosen_ci
         cluster_pairs.append({"gt_cluster": gi, "damage_ids": dmg_ids,
                               "finding_clusters": chosen_ci, "via": via,
                               "confidence": conf, "reason": reason,
+                              "triage": triage, "verdicts": verdicts,
                               "candidates": cand_cluster_idx})
 
     # Zeilen-Sicht ableiten (Dashboard-kompatibel).
@@ -344,6 +431,7 @@ def run_mapping(llm_key: str, findings_meta: list[dict], truths: list[Truth],
                 found_rows.append(did)
             pairs.append({"damage_id": did, "findings": keys, "via": cp["via"],
                           "confidence": cp["confidence"], "reason": cp["reason"],
+                          "triage": cp.get("triage"),
                           "candidates": [k for ci in cp["candidates"] for k in f_clusters[ci]],
                           "gt_cluster": cp["gt_cluster"],
                           "gt_cluster_size": len(cp["damage_ids"])})
