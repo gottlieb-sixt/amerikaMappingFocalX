@@ -12,6 +12,9 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
+
+import gallery
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "data" / "results"
@@ -30,6 +33,9 @@ if not data:
 
 # ── Hilfen ──────────────────────────────────────────────────────────────────
 
+GREEN, RED, ORANGE, BLUE = "#2e9e5b", "#d0433b", "#e8802a", "#3479c4"
+
+
 def plate_key(plate: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", plate).upper()
 
@@ -38,37 +44,32 @@ def gt_images(key: str, damage_id: str) -> list[Path]:
     return sorted((GT_PHOTOS / key).glob(f"{damage_id}_*.jpg"))
 
 
-def gt_info(t: dict, tid: str) -> None:
-    """Strukturierter Info-Block eines DB-Schadens."""
-    st.markdown(
-        f"**DB-Schaden #{tid}** &nbsp; `{(t.get('damage_type') or '?').upper()}`\n\n"
-        f"| | |\n|---|---|\n"
-        f"| **Bauteil** | {t.get('part') or '–'} |\n"
-        f"| **Seite** | {t.get('side_attr') or '–'} |\n"
-        f"| **Schwere** | {t.get('severity') or '–'} |\n"
-        f"| **Ansicht/Segment** | {t.get('projection') or '–'} / {t.get('segment') or '–'} |\n"
-        f"| **Fall-Nr.** | {t.get('case_number') or '–'} |"
+def gt_block(key: str, tid: str, t: dict, accent: str) -> str:
+    info = gallery.info_table(
+        f"DB-Schaden #{tid}", (t.get("damage_type") or "?").upper(),
+        [("Bauteil", t.get("part")), ("Seite", t.get("side_attr")),
+         ("Schwere", t.get("severity")),
+         ("Ansicht/Segment", f"{t.get('projection') or '–'} / {t.get('segment') or '–'}"),
+         ("Fall-Nr.", t.get("case_number"))],
+        accent,
     )
-
-
-def gt_photo_strip(key: str, tid: str, width: int = 230) -> None:
     imgs = gt_images(key, tid)
-    if imgs:
-        cols = st.columns(min(len(imgs), 3))
-        for c, img in zip(cols, imgs[:3]):
-            c.image(str(img), width=width)
-    else:
-        st.caption("📷 DB-Foto noch nicht geladen — `python3 scripts/download_gt_photos.py --refetch`")
+    row = gallery.imgrow(*[gallery.thumb(p, f"#{tid} · {i + 1}") for i, p in enumerate(imgs)])
+    if not imgs:
+        row = gallery.note("📷 DB-Foto gesperrt oder nicht geladen")
+    return gallery.column(info, row)
 
 
-def finding_info(f: dict) -> None:
-    st.markdown(
-        f"**AI-Fund {f['key']}** &nbsp; `{(f.get('type') or '?').upper()}`\n\n"
-        f"| | |\n|---|---|\n"
-        f"| **Bauteil (AI)** | {f.get('part') or '–'} |\n"
-        f"| **Aufnahme-Position** | {f.get('position') or '–'} |\n"
-        f"| **Ansicht (AI)** | {f.get('orientation') or '–'} |"
+def ai_block(f: dict, accent: str, note_text: str = "") -> str:
+    info = gallery.info_table(
+        f"AI-Fund {f['key']}", (f.get("type") or "?").upper(),
+        [("Bauteil (AI)", f.get("part")), ("Aufnahme-Position", f.get("position")),
+         ("Ansicht (AI)", f.get("orientation"))],
+        accent,
     )
+    closeup = ROOT / f["closeup"] if f.get("closeup") else None
+    row = gallery.imgrow(gallery.thumb(closeup, f"{f['key']} · AI-Ausschnitt") if closeup and closeup.exists() else "")
+    return gallery.column(info, row, gallery.note(note_text))
 
 
 # ── Übersicht ───────────────────────────────────────────────────────────────
@@ -112,60 +113,37 @@ findings = {f["key"]: f for f in r["findings"]}
 pair_by_truth = {p["damage_id"]: p for p in r["pairs"]
                  if p["heuristic_matched"] or (p["judge"] or {}).get("same_damage")}
 
-tab_found, tab_missed, tab_extra = st.tabs([
-    f"✅ Gefunden ({len(r['found'])})",
-    f"❌ Nicht gefunden ({len(r['missed'])})",
-    f"➕ Zusätzliche AI-Funde ({len(r['extra_findings'])})",
-])
+category = st.radio(
+    "Kategorie",
+    [f"✅ Gefunden ({len(r['found'])})",
+     f"❌ Nicht gefunden ({len(r['missed'])})",
+     f"➕ Zusätzliche AI-Funde ({len(r['extra_findings'])})"],
+    horizontal=True, label_visibility="collapsed",
+)
+st.caption("Klick auf ein Bild öffnet es groß — Mausrad zoomt, Ziehen verschiebt, Esc schließt.")
 
-with tab_found:
-    st.caption("Links der Schaden aus der Datenbank (mit Original-Fotos), rechts was FocalX dazu gefunden hat.")
+cards: list[str] = []
+if category.startswith("✅"):
     for tid in r["found"]:
-        t = truths.get(tid, {})
-        p = pair_by_truth.get(tid)
+        t, p = truths.get(tid, {}), pair_by_truth.get(tid)
         f = findings.get(p["finding"]) if p else None
-        left, right = st.columns(2, gap="large")
-        with left:
-            gt_info(t, tid)
-            gt_photo_strip(key, tid)
-        with right:
-            if f:
-                finding_info(f)
-                if f.get("closeup") and (ROOT / f["closeup"]).exists():
-                    st.image(str(ROOT / f["closeup"]), width=340)
-                judge = (p.get("judge") or {})
-                if judge:
-                    st.markdown(f"🧠 **LLM-Judge:** {'✔ gleicher Schaden' if judge.get('same_damage') else '✘ abgelehnt'} "
-                                f"(Konfidenz {judge.get('confidence', '–')}) — _{judge.get('reason', '')}_")
-                else:
-                    st.markdown(f"⚙️ **Heuristik-Match** (Score {p.get('score')})")
-        st.divider()
+        judge = (p.get("judge") or {}) if p else {}
+        if judge:
+            nt = (f"🧠 LLM-Judge: {'gleicher Schaden ✔' if judge.get('same_damage') else 'abgelehnt ✘'} "
+                  f"(Konfidenz {judge.get('confidence', '–')}) — {judge.get('reason', '')}")
+        else:
+            nt = f"⚙️ Heuristik-Match (Score {p.get('score') if p else '–'})"
+        cards.append(gallery.card(gt_block(key, tid, t, GREEN),
+                                  ai_block(f, BLUE, nt) if f else ""))
     if not r["found"]:
         st.warning("Kein DB-Schaden wurde gefunden.")
-
-with tab_missed:
-    st.caption("Diese Schäden stehen in der Datenbank, FocalX hat sie NICHT gemeldet.")
+elif category.startswith("❌"):
     for tid in r["missed"]:
-        t = truths.get(tid, {})
-        left, right = st.columns(2, gap="large")
-        with left:
-            gt_info(t, tid)
-        with right:
-            gt_photo_strip(key, tid, width=260)
-        st.divider()
+        cards.append(gallery.card(gt_block(key, tid, truths.get(tid, {}), RED)))
     if not r["missed"]:
         st.success("Alle DB-Schäden wurden gefunden.")
-
-with tab_extra:
-    st.caption("Von FocalX gemeldet, ohne Gegenstück in der DB — potenziell neue Schäden oder False Positives.")
+else:
     for k in r["extra_findings"]:
-        f = findings.get(k, {})
-        left, right = st.columns(2, gap="large")
-        with left:
-            finding_info(f)
-        with right:
-            if f.get("closeup") and (ROOT / f["closeup"]).exists():
-                st.image(str(ROOT / f["closeup"]), width=340)
-            else:
-                st.caption("Kein AI-Bildausschnitt verfügbar")
-        st.divider()
+        cards.append(gallery.card(ai_block(findings.get(k, {}), ORANGE)))
+
+components.html(gallery.render(cards), height=820, scrolling=True)
