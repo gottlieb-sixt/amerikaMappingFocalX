@@ -21,7 +21,9 @@ from pathlib import Path
 
 GATEWAY_URL = "https://llm.orange.sixt.com/v1/chat/completions"
 MODEL = "vertex_ai/gemini-3.1-pro"
-MAX_TOKENS = 2048
+# Gemini 3.1 Pro zieht Reasoning-Tokens vom selben Budget ab — bei zu kleinem
+# Wert kommt eine Antwort mit LEEREM choices[] zurück (alles fürs Denken verbraucht).
+MAX_TOKENS = 20000
 
 SYSTEM_PROMPT = """\
 You are a meticulous vehicle-damage adjudicator. You are given ONE damage that
@@ -85,9 +87,15 @@ def _post_with_retry(api_key: str, body: str, attempts: int = 10) -> str | None:
             req = urllib.request.Request(GATEWAY_URL, method="POST", data=body.encode())
             req.add_header("Authorization", f"Bearer {api_key}")
             req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(req, timeout=90) as r:
+            with urllib.request.urlopen(req, timeout=180) as r:
                 payload = json.loads(r.read().decode())
-            return payload["choices"][0]["message"]["content"].strip()
+            choices = payload.get("choices") or []
+            if not choices:   # Reasoning-Budget aufgebraucht, kein Text generiert
+                if i < attempts - 1:
+                    time.sleep(3)
+                    continue
+                return None
+            return choices[0]["message"]["content"].strip()
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and i < attempts - 1:
                 time.sleep(min(60, 5 * (i + 1)))   # 5,10,…,60s
