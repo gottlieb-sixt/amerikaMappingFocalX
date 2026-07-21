@@ -254,10 +254,17 @@ elif mode.startswith("🔍"):
     # Sticky-Header: der gerade gescrollte Schaden bleibt oben sichtbar,
     # bis seine Kachel-Sektion endet (CSS auf st.container(key=…)).
     st.markdown("""<style>
+    /* Streamlits Border-Container clippen mit overflow:hidden — das bricht
+       position:sticky. Für die Schadens-Container aufheben (ganze Kette). */
+    [class*="st-key-dmg_"],
+    [class*="st-key-dmg_"] > div,
+    [class*="st-key-dmg_"] div[data-testid="stVerticalBlock"] {
+        overflow: visible !important;
+    }
     [class*="st-key-sticky_"] {
-        position: sticky; top: 3.2rem; z-index: 99;
+        position: -webkit-sticky; position: sticky; top: 3.75rem; z-index: 999;
         background: #ffffff; border-bottom: 2px solid #e8802a;
-        box-shadow: 0 4px 10px rgba(0,0,0,.06);
+        box-shadow: 0 4px 10px rgba(0,0,0,.08);
         padding: 0.35rem 0.5rem 0.45rem 0.5rem; border-radius: 0 0 10px 10px;
     }
     </style>""", unsafe_allow_html=True)
