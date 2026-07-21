@@ -79,7 +79,8 @@ def gt_images(key: str, damage_id: str) -> list[Path]:
     return sorted((GT_PHOTOS / key).glob(f"{damage_id}_*.jpg"))
 
 
-def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
+def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str,
+             do_mapping: bool = True) -> dict:
     name = checkin_dir.name                       # PLATE__checkin8
     plate = name.split("__")[0]
     key = re.sub(r"[^A-Za-z0-9]", "", plate).upper()
@@ -120,11 +121,22 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
                 closeups[k] = str(dest.relative_to(ROOT))
                 closeup_path[k] = dest
 
-    findings_meta = [{"key": k, "part": f.part, "type": f.damage_type,
-                      "position": f.position, "orientation": f.orientation}
-                     for k, f in zip(keys, findings)]
-    mp = run_mapping(llm_key, findings_meta, truths, key, closeup_path,
-                     log=lambda m: print(f"  {m}", flush=True))
+    # Rohen FocalX-Report immer sichern (Auswertung/Mapping später möglich).
+    (RESULTS / name).mkdir(parents=True, exist_ok=True)
+    (RESULTS / name / "focalx_report.json").write_text(
+        json.dumps(result.raw_report, indent=1))
+
+    if do_mapping:
+        findings_meta = [{"key": k, "part": f.part, "type": f.damage_type,
+                          "position": f.position, "orientation": f.orientation}
+                         for k, f in zip(keys, findings)]
+        mp = run_mapping(llm_key, findings_meta, truths, key, closeup_path,
+                         log=lambda m: print(f"  {m}", flush=True))
+    else:
+        # Nur Analyse + Speichern — Mapping später via scripts/remap.py.
+        mp = {"found": [], "missed": [t.damage_id for t in truths],
+              "extra_findings": keys, "recall": None, "pairs": [],
+              "physical": None, "mapping_pending": True}
 
     report = {
         "plate": plate,
@@ -144,11 +156,15 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str) -> dict:
     }
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / f"{name}.json").write_text(json.dumps(report, indent=2))
-    rec = f"{report['recall']:.0%}" if report["recall"] is not None else "– (0 GT)"
-    ph = report.get("physical", {})
-    prec = f"{ph['recall']:.0%}" if ph.get("recall") is not None else "–"
-    print(f"  → Recall {rec} (Zeilen) · {prec} (physisch: {ph.get('gt_found')}/{ph.get('gt_total')}) · "
-          f"{ph.get('extras_unique')} unique Extras · data/results/{name}.json", flush=True)
+    if report.get("mapping_pending"):
+        print(f"  → GESPEICHERT (Mapping ausstehend): {len(findings)} Findings · "
+              f"data/results/{name}.json", flush=True)
+    else:
+        rec = f"{report['recall']:.0%}" if report["recall"] is not None else "– (0 GT)"
+        ph = report.get("physical") or {}
+        prec = f"{ph['recall']:.0%}" if ph.get("recall") is not None else "–"
+        print(f"  → Recall {rec} (Zeilen) · {prec} (physisch: {ph.get('gt_found')}/{ph.get('gt_total')}) · "
+              f"{ph.get('extras_unique')} unique Extras · data/results/{name}.json", flush=True)
     return report
 
 
@@ -174,9 +190,10 @@ def main() -> None:
     print(f"{len(dirs)} Check-in(s) zu bewerten")
     client = FocalxClient(_env("FOCALX_PRECISE_USERNAME"), _env("FOCALX_PRECISE_PASSWORD"))
     llm_key = _env("LLM_GW_API_KEY")
+    do_mapping = "--inspect-only" not in sys.argv
     for d in dirs:
         try:
-            evaluate(d, client, llm_key)
+            evaluate(d, client, llm_key, do_mapping=do_mapping)
         except Exception as e:
             print(f"  FEHLER {d.name}: {e}", flush=True)
 
