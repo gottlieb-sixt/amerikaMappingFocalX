@@ -91,9 +91,16 @@ def load_review(checkin: str) -> dict:
 
 
 def save_review(checkin: str, gt_key: str, human: list[str], ai: list[str],
-                ai_available: bool = True) -> None:
+                ai_available: bool = True, exclude: bool = False,
+                reason: str = "") -> None:
     REVIEWS.mkdir(parents=True, exist_ok=True)
     rev = load_review(checkin)
+    if exclude:
+        rev[gt_key] = {"human": [], "ai": sorted(ai), "verdict": "excluded",
+                       "reason": reason, "ai_available": ai_available,
+                       "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+        review_file(checkin).write_text(json.dumps(rev, indent=2))
+        return
     if not ai_available:
         verdict = "manual_only"       # Auto war ungemappt — zählt nicht gegen die AI
     elif set(human) == set(ai):
@@ -221,6 +228,8 @@ elif mode.startswith("🔍"):
     if REVIEWS.exists():
         for _f in REVIEWS.glob("*.json"):
             for _v in json.loads(_f.read_text()).values():
+                if _v.get("verdict") == "excluded":
+                    continue
                 _tot += 1
                 if _v.get("human"):
                     _fx_ok += 1                       # FocalX hat den Schaden wirklich
@@ -294,8 +303,14 @@ elif mode.startswith("🔍"):
         rev = review.get(gt_key)
         ai_keys = ai_choice_for(r, dmg_ids)
         ai_avail = not r.get("mapping_pending")
-        status = ("✅" if rev and rev["verdict"].startswith("confirmed")
+        excluded = bool(rev and rev["verdict"] == "excluded")
+        status = ("🚫" if excluded
+                  else "✅" if rev and rev["verdict"].startswith("confirmed")
                   else "✏️" if rev else "⬜")
+        if excluded:
+            st.markdown(f"""<style>
+            div[class*="st-key-dmg_{sel}_{gi}"] {{ opacity: 0.4; }}
+            </style>""", unsafe_allow_html=True)
 
         with st.container(border=True, key=f"dmg_{sel}_{gi}"):
             # ── Sticky GT-Kopf: Infos + Fotos, bleibt beim Scrollen stehen ──
@@ -313,7 +328,10 @@ elif mode.startswith("🔍"):
                         st.markdown(f"🧠 **AI:** {', '.join(ai_keys)}")
                     else:
                         st.markdown("🧠 **AI:** kein Match" + ("" if ai_avail else " (Mapping lief noch nicht)"))
-                    if rev:
+                    if excluded:
+                        st.markdown(f"🚫 **Ausgeschlossen** — {rev.get('reason') or 'ohne Grund'} "
+                                    f"(zählt nicht in die Statistik)")
+                    elif rev:
                         st.markdown(f"📝 `{rev['verdict']}` → {', '.join(rev['human']) or 'kein Match'}")
                 with head[1]:
                     imgs = [pth for did in dmg_ids for pth in gt_images(key, did)][:4]
@@ -359,12 +377,35 @@ elif mode.startswith("🔍"):
                                 save_review(r["checkin"], gt_key, list(keys), ai_keys,
                                             ai_available=ai_avail)
                                 st.rerun()
-            none_current = rev is not None and not rev["human"]
-            if st.button("✗ Kein Match — FocalX hat diesen Schaden nicht gefunden"
-                         + (" (gewählt)" if none_current else ""),
-                         key=f"none_{sel}_{gt_key}", disabled=none_current):
-                save_review(r["checkin"], gt_key, [], ai_keys, ai_available=ai_avail)
-                st.rerun()
+            none_current = (rev is not None and not rev["human"]
+                            and rev["verdict"] != "excluded")
+            bcols = st.columns([3, 2, 2])
+            with bcols[0]:
+                if st.button("✗ Kein Match — FocalX hat diesen Schaden nicht gefunden"
+                             + (" (gewählt)" if none_current else ""),
+                             key=f"none_{sel}_{gt_key}", disabled=none_current):
+                    save_review(r["checkin"], gt_key, [], ai_keys, ai_available=ai_avail)
+                    st.rerun()
+            with bcols[1]:
+                excl_reason = st.text_input("Grund", key=f"exclreason_{sel}_{gt_key}",
+                                            placeholder="Grund für Ausschluss…",
+                                            label_visibility="collapsed",
+                                            disabled=excluded)
+            with bcols[2]:
+                if not excluded:
+                    if st.button("🚫 Aus Statistik ausschließen",
+                                 key=f"excl_{sel}_{gt_key}", use_container_width=True):
+                        save_review(r["checkin"], gt_key, [], ai_keys,
+                                    ai_available=ai_avail, exclude=True,
+                                    reason=excl_reason)
+                        st.rerun()
+                else:
+                    if st.button("↩️ Wieder aufnehmen",
+                                 key=f"unexcl_{sel}_{gt_key}", use_container_width=True):
+                        rev_all = load_review(r["checkin"])
+                        rev_all.pop(gt_key, None)
+                        review_file(r["checkin"]).write_text(json.dumps(rev_all, indent=2))
+                        st.rerun()
 
 # ════════════════════════════════════════════════════════════════════════════
 else:
@@ -380,8 +421,11 @@ else:
     ai_total = 0                       # nur Reviews, bei denen die AI mitspielte
     gt_matched = 0
     per_checkin = []
+    excluded_total = 0
     for f in rev_files:
-        rev = json.loads(f.read_text())
+        rev_raw = json.loads(f.read_text())
+        excluded_total += sum(1 for v in rev_raw.values() if v["verdict"] == "excluded")
+        rev = {k: v for k, v in rev_raw.items() if v["verdict"] != "excluded"}
         n = len(rev)
         c_ok = sum(1 for v in rev.values() if v["verdict"] == "confirmed")
         c_ok_e = sum(1 for v in rev.values() if v["verdict"] == "confirmed_empty")
@@ -403,10 +447,12 @@ else:
         })
 
     st.header("1 · FocalX-Detection (validiert)")
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Reviewte DB-Schäden", total)
     c2.metric("Von FocalX gefunden (validiert)", gt_matched)
     c3.metric("Validierter Recall", f"{gt_matched / total:.0%}" if total else "–")
+    c4.metric("🚫 Ausgeschlossen", excluded_total,
+              help="Vom Reviewer aus der Statistik genommen (mit Grund geloggt)")
 
     st.header("2 · AI-Mapping-Qualität")
     st.caption(f"Basis: {ai_total} Reviews mit AI-Vorschlag "
