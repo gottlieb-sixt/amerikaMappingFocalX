@@ -260,7 +260,11 @@ elif mode.startswith("🔍"):
     const doc = window.parent.document;
     function stickify() {
       doc.querySelectorAll('.gt-sticky-marker').forEach(m => {
-        const block = m.closest('div[data-testid="stVerticalBlock"]');
+        let block = m.closest('div[data-testid="stVerticalBlock"]');
+        // Sticky braucht Spielraum: nicht der Block selbst, sondern sein
+        // Layout-Wrapper (dessen Parent = ganzer Schadens-Container) muss kleben.
+        const par = block && block.parentElement;
+        if (par && par.getAttribute('data-testid') === 'stLayoutWrapper') block = par;
         if (!block || block.dataset.stickified === '1') return;
         block.dataset.stickified = '1';
         Object.assign(block.style, {
