@@ -78,12 +78,12 @@ st.header("Übersicht")
 rows = [{
     "Kennzeichen": r["plate"],
     "Check-in": r["checkin"].split("__")[1],
-    "Bilder": r["images"],
     "Schäden (DB)": r["ground_truth_total"],
-    "Gefunden": len(r["found"]),
-    "Nicht gefunden": len(r["missed"]),
-    "Zusätzlich (AI)": len(r["extra_findings"]),
-    "Recall": r["recall"],
+    "Physisch (DB)": (r.get("physical") or {}).get("gt_total"),
+    "Gefunden (physisch)": (r.get("physical") or {}).get("gt_found"),
+    "Recall": (r.get("physical") or {}).get("recall", r["recall"]),
+    "Recall (Zeilen)": r["recall"],
+    "Neue Schäden (unique)": (r.get("physical") or {}).get("extras_unique", len(r["extra_findings"])),
     "Zeitpunkt": r["timestamp"],
 } for r in data]
 df = pd.DataFrame(rows)
