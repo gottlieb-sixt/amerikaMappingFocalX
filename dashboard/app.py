@@ -87,6 +87,25 @@ def ai_choice_for(r: dict, dmg_ids: list[str]) -> list[str]:
     return []
 
 
+META_KEY = "_meta"
+
+
+def review_damages(rev: dict) -> dict:
+    """Nur die Schadens-Einträge (ohne Meta-Flag)."""
+    return {k: v for k, v in rev.items() if k != META_KEY}
+
+
+def review_done(rev: dict) -> bool:
+    return bool((rev.get(META_KEY) or {}).get("done"))
+
+
+def set_review_done(checkin: str, done: bool) -> None:
+    REVIEWS.mkdir(parents=True, exist_ok=True)
+    rev = load_review(checkin)
+    rev[META_KEY] = {"done": done, "ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+    review_file(checkin).write_text(json.dumps(rev, indent=2))
+
+
 def review_file(checkin: str) -> Path:
     return REVIEWS / f"{checkin}.json"
 
@@ -237,10 +256,14 @@ elif mode.startswith("🔍"):
     st.title("🔍 Review / manuelles Mapping")
 
     # ── Live-Zähler über ALLE Reviews (aktualisiert sich mit jedem Speichern) ──
-    _tot = _fx_ok = _ai_base = _ai_ok = 0
+    _tot = _fx_ok = _ai_base = _ai_ok = _cars_done = 0
     if REVIEWS.exists():
         for _f in REVIEWS.glob("*.json"):
-            for _v in json.loads(_f.read_text()).values():
+            _rev = json.loads(_f.read_text())
+            if not review_done(_rev):
+                continue                      # nur abgeschlossene Autos zählen
+            _cars_done += 1
+            for _v in review_damages(_rev).values():
                 if _v.get("verdict") == "excluded":
                     continue
                 _tot += 1
@@ -250,7 +273,9 @@ elif mode.startswith("🔍"):
                     _ai_base += 1
                     if _v.get("verdict") in ("confirmed", "confirmed_empty"):
                         _ai_ok += 1
-    c1, c2, c3 = st.columns(3)
+    c0, c1, c2, c3 = st.columns(4)
+    c0.metric("Abgeschlossene Autos", _cars_done,
+              help="Nur Autos mit gesetztem ✔️-Haken zählen in die Statistik")
     c1.metric("Richtige Mappings FocalX (validiert)", f"{_fx_ok} / {_tot}",
               help="Reviewte DB-Schäden, für die FocalX laut DIR wirklich einen Fund hat")
     c2.metric("Richtige Mappings durch AI", f"{_ai_ok} / {_ai_base}",
@@ -270,8 +295,19 @@ elif mode.startswith("🔍"):
     review = load_review(r["checkin"])
 
     done = sum(1 for ids in gcl if "+".join(sorted(ids)) in review)
-    st.progress(done / len(gcl) if gcl else 1.0,
-                text=f"{done}/{len(gcl)} Schäden reviewt")
+    pc1, pc2 = st.columns([4, 2])
+    with pc1:
+        st.progress(done / len(gcl) if gcl else 1.0,
+                    text=f"{done}/{len(gcl)} Schäden reviewt")
+    with pc2:
+        is_done = review_done(review)
+        new_done = st.toggle("✔️ Mit diesem Auto durch — in Statistik aufnehmen",
+                             value=is_done, key=f"done_{sel}")
+        if new_done != is_done:
+            set_review_done(r["checkin"], new_done)
+            st.rerun()
+    if done < len(gcl) and review_done(review):
+        st.warning(f"⚠️ Als abgeschlossen markiert, aber erst {done}/{len(gcl)} Schäden reviewt.")
 
     # Sticky-Header: der gerade gescrollte Schaden bleibt oben sichtbar,
     # bis seine Kachel-Sektion endet (CSS auf st.container(key=…)).
@@ -435,10 +471,15 @@ else:
     gt_matched = 0
     per_checkin = []
     excluded_total = 0
+    skipped_cars = 0
     for f in rev_files:
         rev_raw = json.loads(f.read_text())
-        excluded_total += sum(1 for v in rev_raw.values() if v["verdict"] == "excluded")
-        rev = {k: v for k, v in rev_raw.items() if v["verdict"] != "excluded"}
+        if not review_done(rev_raw):
+            skipped_cars += 1
+            continue                          # nur abgeschlossene Autos
+        dmg = review_damages(rev_raw)
+        excluded_total += sum(1 for v in dmg.values() if v["verdict"] == "excluded")
+        rev = {k: v for k, v in dmg.items() if v["verdict"] != "excluded"}
         n = len(rev)
         c_ok = sum(1 for v in rev.values() if v["verdict"] == "confirmed")
         c_ok_e = sum(1 for v in rev.values() if v["verdict"] == "confirmed_empty")
@@ -459,6 +500,8 @@ else:
             "FocalX-Treffer (validiert)": c_match,
         })
 
+    st.caption(f"Basis: nur Autos mit ✔️-Abschluss-Haken"
+               + (f" — {skipped_cars} Auto(s) mit Reviews, aber ohne Haken, zählen noch nicht." if skipped_cars else "."))
     st.header("1 · FocalX-Detection (validiert)")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Reviewte DB-Schäden", total)
