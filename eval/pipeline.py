@@ -192,10 +192,16 @@ def main() -> None:
     llm_key = _env("LLM_GW_API_KEY")
     do_mapping = "--inspect-only" not in sys.argv
     for d in dirs:
-        try:
-            evaluate(d, client, llm_key, do_mapping=do_mapping)
-        except Exception as e:
-            print(f"  FEHLER {d.name}: {e}", flush=True)
+        # Bis zu 3 Versuche pro Check-in — transiente Netz-/DNS-Aussetzer
+        # dürfen nicht die ganze Warteschlange verbrennen.
+        for attempt in range(1, 4):
+            try:
+                evaluate(d, client, llm_key, do_mapping=do_mapping)
+                break
+            except Exception as e:
+                print(f"  FEHLER {d.name} (Versuch {attempt}/3): {e}", flush=True)
+                if attempt < 3:
+                    time.sleep(60)
 
 
 if __name__ == "__main__":
