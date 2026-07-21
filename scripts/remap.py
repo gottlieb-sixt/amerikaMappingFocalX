@@ -38,6 +38,7 @@ def remap(path: Path, llm_key: str) -> None:
     mp = run_mapping(llm_key, findings_meta, truths, plate_key, closeup_path,
                      log=lambda m: print(f"  {m}"))
     r.update(mp)
+    r.pop("mapping_pending", None)   # jetzt gemappt
     path.write_text(json.dumps(r, indent=2))
     ph = r.get("physical", {})
     rec = f"{r['recall']:.0%}" if r["recall"] is not None else "–"
