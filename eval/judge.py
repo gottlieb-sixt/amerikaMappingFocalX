@@ -101,6 +101,13 @@ def _post_with_retry(api_key: str, body: str, attempts: int = 10) -> str | None:
                     time.sleep(3)
                     continue
                 return None
+            fr = choices[0].get("finish_reason")
+            if fr and fr != "stop":
+                u = payload.get("usage", {})
+                print(f"    [judge] finish_reason={fr} "
+                      f"(completion={u.get('completion_tokens')}, "
+                      f"reasoning={u.get('completion_tokens_details', {}).get('reasoning_tokens')})",
+                      file=sys.stderr)
             return choices[0]["message"]["content"].strip()
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and i < attempts - 1:

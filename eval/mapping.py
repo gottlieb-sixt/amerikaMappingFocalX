@@ -18,6 +18,7 @@ das Mapping fällt auf die strenge Heuristik zurück.
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -62,6 +63,8 @@ def _ai_json(llm_key: str, system: str, content: list[dict]) -> dict | None:
     try:
         obj = json.loads(raw)
     except Exception:
+        print(f"    [mapping] JSON-Parse-Fehler, Antwort-Ende: …{raw[-160:]!r}",
+              file=sys.stderr)
         return None
     if isinstance(obj, list):
         obj = next((v for v in obj if isinstance(v, dict)), {})
