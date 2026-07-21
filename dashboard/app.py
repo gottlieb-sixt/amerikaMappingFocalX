@@ -282,7 +282,7 @@ elif mode.startswith("🔍"):
                 else:
                     st.caption("📷 kein DB-Foto")
 
-            # ── Kandidaten unten, sortiert nach Passgenauigkeit ──
+            # ── Kandidaten als klickbare Kacheln, beste zuerst ──
             truth_obj = Truth(
                 damage_id=dmg_ids[0], part=t["part"], damage_type=t["damage_type"],
                 side_attr=t["side_attr"], projection=t["projection"],
@@ -290,38 +290,42 @@ elif mode.startswith("🔍"):
             scored = []
             for ci, keys in enumerate(fcl):
                 f0 = findings[keys[0]]
-                s = max(match_score(findings[k]["position"], findings[k]["part"],
-                                    findings[k]["type"], truth_obj) for k in keys)
-                scored.append((s, ci, keys))
+                sc = max(match_score(findings[k]["position"], findings[k]["part"],
+                                     findings[k]["type"], truth_obj) for k in keys)
+                scored.append((sc, ci, keys))
             scored.sort(key=lambda x: -x[0])
             show = [x for x in scored if x[0] > 0][:8] or scored[:4]
 
-            st.markdown("**FocalX-Funde (beste zuerst):**")
-            cols = st.columns(len(show)) if show else []
-            options = {"— kein Match —": []}
-            for col, (s, ci, keys) in zip(cols, show):
-                f0 = findings[keys[0]]
-                label = f"{'+'.join(keys)} · {f0['part']}·{f0['type']} (Score {s})"
-                options[label] = list(keys)
-                with col:
-                    cu = ROOT / f0["closeup"] if f0.get("closeup") else None
-                    if cu and cu.exists():
-                        st.image(str(cu), use_container_width=True)
-                    st.caption(f"**{'+'.join(keys)}** {f0['part']}·{f0['type']} · Score {s}"
-                               + (" · 🧠 AI" if set(keys) & set(ai_keys) else ""))
-
-            # Vorauswahl: bisheriges Review > AI-Vorschlag > kein Match
-            pre = rev["human"] if rev else ai_keys
-            idx = 0
-            for i, (lbl, keys) in enumerate(options.items()):
-                if set(keys) == set(pre) and keys:
-                    idx = i
-                    break
-            choice = st.radio("Zuordnung", list(options.keys()), index=idx,
-                              key=f"radio_{sel}_{gt_key}", horizontal=False)
-            if st.button("💾 Speichern", key=f"save_{sel}_{gt_key}"):
-                save_review(r["checkin"], gt_key, options[choice], ai_keys,
-                            ai_available=not r.get("mapping_pending"))
+            ai_avail = not r.get("mapping_pending")
+            st.markdown("**FocalX-Funde — Kachel anklicken zum Mappen:**")
+            PER_ROW = 4
+            for start in range(0, len(show), PER_ROW):
+                cols = st.columns(PER_ROW)
+                for col, (sc, ci, keys) in zip(cols, show[start:start + PER_ROW]):
+                    f0 = findings[keys[0]]
+                    is_ai = bool(set(keys) & set(ai_keys))
+                    is_current = rev is not None and set(rev["human"]) == set(keys)
+                    with col:
+                        with st.container(border=True):
+                            cu = ROOT / f0["closeup"] if f0.get("closeup") else None
+                            if cu and cu.exists():
+                                st.image(str(cu), use_container_width=True)
+                            st.caption(f"**{'+'.join(keys)}** · {f0['part']} · {f0['type']}"
+                                       + (" · 🧠 **AI-Vorschlag**" if is_ai else ""))
+                            label = ("✅ Gewählt" if is_current
+                                     else "✓ AI bestätigen" if is_ai else "Diesen mappen")
+                            if st.button(label, key=f"pick_{sel}_{gt_key}_{ci}",
+                                         use_container_width=True,
+                                         type="primary" if is_ai and rev is None else "secondary",
+                                         disabled=is_current):
+                                save_review(r["checkin"], gt_key, list(keys), ai_keys,
+                                            ai_available=ai_avail)
+                                st.rerun()
+            none_current = rev is not None and not rev["human"]
+            if st.button("✗ Kein Match — FocalX hat diesen Schaden nicht gefunden"
+                         + (" (gewählt)" if none_current else ""),
+                         key=f"none_{sel}_{gt_key}", disabled=none_current):
+                save_review(r["checkin"], gt_key, [], ai_keys, ai_available=ai_avail)
                 st.rerun()
 
 # ════════════════════════════════════════════════════════════════════════════
