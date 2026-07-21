@@ -273,13 +273,37 @@ elif mode.startswith("🔍"):
                     _ai_base += 1
                     if _v.get("verdict") in ("confirmed", "confirmed_empty"):
                         _ai_ok += 1
+    # Klickbare Kennzahlen: Klick schaltet zwischen Bruch und Prozent um.
+    st.markdown("""<style>
+    [class*="st-key-mtoggle_"] button {
+        font-size: 2.1rem !important; font-weight: 600; line-height: 1.2;
+        padding: 0 !important; border: none !important; background: none !important;
+        color: inherit !important; min-height: 0 !important;
+    }
+    [class*="st-key-mtoggle_"] button:hover { color: #e8802a !important; }
+    </style>""", unsafe_allow_html=True)
+    pct = st.session_state.get("pct_mode", False)
+
+    def _fmt(ok, base):
+        if pct:
+            return f"{ok / base:.0%}" if base else "–"
+        return f"{ok} / {base}"
+
     c0, c1, c2, c3 = st.columns(4)
     c0.metric("Abgeschlossene Autos", _cars_done,
               help="Nur Autos mit gesetztem ✔️-Haken zählen in die Statistik")
-    c1.metric("Richtige Mappings FocalX (validiert)", f"{_fx_ok} / {_tot}",
-              help="Reviewte DB-Schäden, für die FocalX laut DIR wirklich einen Fund hat")
-    c2.metric("Richtige Mappings durch AI", f"{_ai_ok} / {_ai_base}",
-              help="AI-Vorschläge, die du exakt bestätigt hast — sinkt relativ, wenn du korrigierst")
+    with c1:
+        st.caption("Richtige Mappings FocalX (validiert)")
+        if st.button(_fmt(_fx_ok, _tot), key="mtoggle_fx",
+                     help="Klick: Bruch ↔ Prozent"):
+            st.session_state["pct_mode"] = not pct
+            st.rerun()
+    with c2:
+        st.caption("Richtige Mappings durch AI")
+        if st.button(_fmt(_ai_ok, _ai_base), key="mtoggle_ai",
+                     help="Klick: Bruch ↔ Prozent"):
+            st.session_state["pct_mode"] = not pct
+            st.rerun()
     c3.metric("AI-Genauigkeit", f"{_ai_ok / _ai_base:.0%}" if _ai_base else "–")
     st.divider()
 
