@@ -398,7 +398,7 @@ if mode.startswith("📊"):
     _MASTER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
 
     st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
-    _src_cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
+    _src_cols = [("mit Damage Gate", {"gate", "other"}), ("ohne Damage Gate", {"other"})]
     _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
     _g_rows = [f"≥ {b}" for b in _gsizes]
     gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
@@ -428,8 +428,9 @@ if mode.startswith("📊"):
 
     st.dataframe(gtext.style.apply(_gbg, axis=0), use_container_width=True)
     st.caption("Erfassungsquelle des DB-Schadens (Case-Feld source_system): "
-               "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
-               "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
+               "**mit Damage Gate** = alle Schäden (inkl. automatischem Scan-Portal) · "
+               "**ohne Damage Gate** = nur Agent-App & übrige Systeme (Scan-Portal "
+               "ausgeschlossen) · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
     def _cum_matrix(sev_cols: list[tuple[str, set, set]], all_sizes: bool = False) -> None:
         all_sev = set().union(*[d for _, d, _src in sev_cols])
@@ -467,23 +468,20 @@ if mode.startswith("📊"):
 
     ALLQ = {"gate", "other"}
     OHNE = {"other"}
-    K_O = {"Kratzer oberflächlich"}
+    K_T = {"Kratzer bis Grundierung"}
     K_ALL = {"Kratzer oberflächlich", "Kratzer bis Grundierung"}
-    D_O = {"Delle ohne Lackschaden"}
     D_ALL = {"Delle ohne Lackschaden", "Delle mit Lackschaden"}
 
     st.markdown("**Kratzer** — Größe × Tiefe, jeweils mit / ohne Damage Gate")
     _cum_matrix([
-        ("oberflächlich", K_O, ALLQ),
-        ("oberflächlich · ohne Gate", K_O, OHNE),
         ("alle Kratzer", K_ALL, ALLQ),
         ("alle Kratzer · ohne Gate", K_ALL, OHNE),
+        ("tief", K_T, ALLQ),
+        ("tief · ohne Gate", K_T, OHNE),
     ], all_sizes=True)
 
     st.markdown("**Delle** — Größe × Lackschaden, jeweils mit / ohne Damage Gate")
     _cum_matrix([
-        ("ohne Lack", D_O, ALLQ),
-        ("ohne Lack · ohne Gate", D_O, OHNE),
         ("alle Dellen", D_ALL, ALLQ),
         ("alle Dellen · ohne Gate", D_ALL, OHNE),
     ], all_sizes=True)
@@ -1022,7 +1020,7 @@ if mode.startswith("🧠"):
     _cm2 = _mpl2.colormaps["RdYlGn"]
     _ML = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
     _gs = [b for b in _ML if any(k[0] == b for k in acc)]
-    _cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
+    _cols = [("mit Damage Gate", {"gate", "other"}), ("ohne Damage Gate", {"other"})]
     atext = pd.DataFrame("–", index=[f"≥ {b}" for b in _gs],
                          columns=[c for c, _ in _cols])
     arec = pd.DataFrame(float("nan"), index=[f"≥ {b}" for b in _gs],
