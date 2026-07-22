@@ -844,25 +844,36 @@ else:
         # Ordinale Leiter klein → groß; kumuliert = dieser Bucket und alles Größere
         _ladder = [b for b in ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll",
                                "2–4 Zoll", "> 4 Zoll"] if b in size_stat]
-        _rows = []
+        import matplotlib as _mpl
+        _rdylgn = _mpl.colormaps["RdYlGn"]
+
+        def _cellbg(v: float | None) -> str:
+            if v is None:
+                return "color: #bbb"
+            r_, g_, b_, _a = _rdylgn(v)
+            return (f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
+                    f"{int(b_ * 255)},0.55)")
+
+        _rows, _kum_vals = [], []
         for i, b in enumerate(_ladder):
             g, t_ = size_stat[b]
             cg = sum(size_stat[x][0] for x in _ladder[i:])
             ct = sum(size_stat[x][1] for x in _ladder[i:])
             _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                          "ab hier u. größer (kum.)": f"{cg}/{ct}", "Recall (kum.)": cg / ct})
+                          "ab hier u. größer (kum.)": f"{cg}/{ct}",
+                          "Recall (kum.)": f"{cg / ct:.0%}"})
+            _kum_vals.append(cg / ct)
         for b in ("komplett", "ohne Angabe"):
             if b in size_stat:
                 g, t_ = size_stat[b]
                 _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                              "ab hier u. größer (kum.)": "–", "Recall (kum.)": float("nan")})
+                              "ab hier u. größer (kum.)": "–", "Recall (kum.)": "–"})
+                _kum_vals.append(None)
         st.dataframe(pd.DataFrame(_rows)
-                     .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
-                                   na_rep="–")
+                     .style.format({"Recall": "{:.0%}"})
                      .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
-                     .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
-                                          vmin=0, vmax=1)
-                     .highlight_null(props="background-color: transparent; color: #bbb;"),
+                     .apply(lambda col: [_cellbg(v) for v in _kum_vals],
+                            subset=["Recall (kum.)"], axis=0),
                      use_container_width=True, hide_index=True)
         st.caption("kum. = dieser Bucket **und alle größeren**: Zeile 2–4 Zoll = "
                    "Recall für alle Schäden ab 2 Zoll, oberste Zeile = alle Größen.")
