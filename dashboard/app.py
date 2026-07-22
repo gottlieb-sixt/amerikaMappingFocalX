@@ -940,19 +940,20 @@ if mode.startswith("🧠"):
     st.subheader("Wie gehen die KI-Urteile aus?")
     import altair as alt
 
-    def _stack(title: str, segs: list[tuple[str, int, str]]) -> None:
+    def _stack(title: str, segs: list[tuple[str, int, str]],
+               scale_max: int) -> None:
         total = sum(n for _, n, _c in segs)
         df = pd.DataFrame([{"Ausgang": f"{lbl} ({n})", "n": n, "farbe": col, "o": i,
                             "pct": f"{n / total:.0%}"}
                            for i, (lbl, n, col) in enumerate(segs) if n > 0])
         bars = alt.Chart(df).mark_bar(height=34, cornerRadius=3).encode(
             x=alt.X("n:Q", title=None, axis=None,
-                    scale=alt.Scale(domain=[0, total])),
+                    scale=alt.Scale(domain=[0, scale_max])),
             color=alt.Color("Ausgang:N",
                             sort=alt.SortField("o"),
                             scale=alt.Scale(domain=list(df["Ausgang"]),
                                             range=list(df["farbe"])),
-                            legend=alt.Legend(orient="right", title=None,
+                            legend=alt.Legend(orient="bottom", title=None,
                                               labelFontSize=13, symbolType="square")),
             order=alt.Order("o:Q"),
             tooltip=[alt.Tooltip("Ausgang:N"), alt.Tooltip("n:Q", title="Anzahl")],
@@ -960,24 +961,25 @@ if mode.startswith("🧠"):
         labels = alt.Chart(df).mark_text(color="white", fontSize=13,
                                          fontWeight="bold", align="right",
                                          dx=-8, baseline="middle").encode(
-            x=alt.X("n:Q", stack="zero", scale=alt.Scale(domain=[0, total])),
+            x=alt.X("n:Q", stack="zero", scale=alt.Scale(domain=[0, scale_max])),
             detail="Ausgang:N",
             order=alt.Order("o:Q"),
             text=alt.condition("datum.n >= 3", alt.Text("pct:N"), alt.value("")),
         )
         st.markdown(f"**{title}**")
-        st.altair_chart((bars + labels).properties(height=48),
+        st.altair_chart((bars + labels).properties(height=44),
                         use_container_width=True)
 
+    _scale_max = max(mappable, nonmap)
     _stack(f"Match existiert ({mappable}) — kann die KI ihn finden?", [
         ("exakt richtig gemappt", counts["confirmed"], "#2e9e5b"),
         ("falsches Finding gewählt", counts["corrected"], "#e8c14d"),
         ("übersehen", counts["human_added"], "#e8802a"),
-    ])
+    ], _scale_max)
     _stack(f"Kein Match existiert ({nonmap}) — erkennt die KI das?", [
         ("korrekt: kein Match", counts["confirmed_empty"], "#8fd0a0"),
         ("fälschlich gemappt", counts["rejected"], "#d0433b"),
-    ])
+    ], _scale_max)
     st.caption(f"Präzision der KI-Matches: **{prec:.0%}** (wenn die KI mappte, war es "
                f"so oft exakt der richtige Fund) · Gesamt-Genauigkeit über alle {tot} "
                f"Schäden: {ok_total / tot:.0%}. Lesart: Die KI irrt fast nur in eine "
