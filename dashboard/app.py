@@ -583,19 +583,6 @@ elif mode.startswith("🔍"):
                                 save_review(r["checkin"], gt_key, list(keys), ai_keys,
                                             ai_available=ai_avail)
                                 st.rerun()
-                            if len(keys) > 1:
-                                # Gruppierung könnte falsch sein → einzeln mappbar
-                                sc_ = st.columns(len(keys))
-                                for c_, k in zip(sc_, keys):
-                                    single_cur = (rev is not None
-                                                  and set(rev["human"]) == {k})
-                                    if c_.button(f"nur {k}" + (" ✅" if single_cur else ""),
-                                                 key=f"pick1_{sel}_{gt_key}_{ci}_{k}",
-                                                 use_container_width=True,
-                                                 disabled=single_cur):
-                                        save_review(r["checkin"], gt_key, [k], ai_keys,
-                                                    ai_available=ai_avail)
-                                        st.rerun()
             none_current = (rev is not None and not rev["human"]
                             and rev["verdict"] != "excluded")
             bcols = st.columns([3, 2, 2])
