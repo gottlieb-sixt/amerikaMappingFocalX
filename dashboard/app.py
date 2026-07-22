@@ -855,13 +855,14 @@ else:
             if b in size_stat:
                 g, t_ = size_stat[b]
                 _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                              "kum. (inkl. kleinerer)": "–", "Recall (kum.)": None})
+                              "kum. (inkl. kleinerer)": "–", "Recall (kum.)": float("nan")})
         st.dataframe(pd.DataFrame(_rows)
                      .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
                                    na_rep="–")
                      .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
                      .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
-                                          vmin=0, vmax=1),
+                                          vmin=0, vmax=1)
+                     .highlight_null(props="background-color: transparent; color: #bbb;"),
                      use_container_width=True, hide_index=True)
         st.caption("kum. wächst mit der Größe: Zeile 2–4 Zoll = alle Schäden "
                    "**bis** 4 Zoll, unterste Zeile = alle Größen.")
@@ -888,13 +889,14 @@ else:
                 g, t_ = depth_stat[b]
                 _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
                               "Recall": g / t_, "kum. (inkl. leichterer)": "–",
-                              "Recall (kum.)": None})
+                              "Recall (kum.)": float("nan")})
         st.dataframe(pd.DataFrame(_rows)
                      .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
                                    na_rep="–")
                      .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
                      .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
-                                          vmin=0, vmax=1),
+                                          vmin=0, vmax=1)
+                     .highlight_null(props="background-color: transparent; color: #bbb;"),
                      use_container_width=True, hide_index=True)
         st.caption("kum. wächst mit der Schwere: Kratzer bis Grundierung = alle "
                    "Kratzer, Delle mit Lackschaden = alle Dellen.")
