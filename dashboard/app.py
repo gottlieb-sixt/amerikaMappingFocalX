@@ -859,21 +859,19 @@ else:
             g, t_ = size_stat[b]
             cg = sum(size_stat[x][0] for x in _ladder[i:])
             ct = sum(size_stat[x][1] for x in _ladder[i:])
-            _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
+            _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_,
                           "ab hier u. größer (kum.)": f"{cg}/{ct}",
                           "Recall (kum.)": f"{cg / ct:.0%}"})
             _kum_vals.append(cg / ct)
         for b in ("komplett", "ohne Angabe"):
             if b in size_stat:
                 g, t_ = size_stat[b]
-                _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
+                _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_,
                               "ab hier u. größer (kum.)": "–", "Recall (kum.)": "–"})
                 _kum_vals.append(None)
         st.dataframe(pd.DataFrame(_rows)
-                     .style.format({"Recall": "{:.0%}"})
-                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
-                     .apply(lambda col: [_cellbg(v) for v in _kum_vals],
-                            subset=["Recall (kum.)"], axis=0),
+                     .style.apply(lambda col: [_cellbg(v) for v in _kum_vals],
+                                  subset=["Recall (kum.)"], axis=0),
                      use_container_width=True, hide_index=True)
         st.caption("kum. = dieser Bucket **und alle größeren**: Zeile 2–4 Zoll = "
                    "Recall für alle Schäden ab 2 Zoll, oberste Zeile = alle Größen.")
