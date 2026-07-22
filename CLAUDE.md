@@ -14,6 +14,13 @@ Zwei getrennte Metriken, niemals vermischen:
 1. **FocalX-Detection-Qualität** — validiert durch menschliches Review (Stand: 54 % Recall über 20 Autos)
 2. **AI-Mapping-Genauigkeit** — KI-Vorschlag vs. menschliche Wahl (Stand: 71 %; Fehler fast nur falsch-negativ)
 
+**Die 📊-Ergebnisseite im Dashboard ist final und rein menschlich validiert.**
+Alle 127 Schäden der 20 abgeschlossenen Autos wurden komplett manuell gemappt —
+keine Zahl dort hängt von der KI ab. Remaps, neue Judge-Prompts oder
+FocalX-Neuläufe dürfen diese Zahlen NICHT verändern; sie ändern sich nur durch
+neue/geänderte Reviews des Users. Neue Check-ins erweitern die Basis, die
+bestehenden Urteile bleiben unangetastet (eingefroren in `gold/mapping_gold.json`).
+
 ## Layout
 
 ```
