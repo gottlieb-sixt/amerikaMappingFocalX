@@ -129,6 +129,31 @@ def late_ids(key: str, checkin: str) -> set[str]:
 
 
 @st.cache_data(show_spinner=False)
+def source_map(key: str) -> dict[str, int]:
+    """damage_number → source_system des Falls (Case-Feld 11; 10 = Damage Gate)."""
+    f = ROOT / "data" / "ground_truth" / f"{key}.json"
+    if not f.exists():
+        return {}
+    out: dict[str, int] = {}
+    d = json.loads(f.read_text())
+    cases = d.get("2") or []
+    if isinstance(cases, dict):
+        cases = [cases]
+    for c in cases:
+        try:
+            src = int(str(c.get("11")))
+        except (TypeError, ValueError):
+            src = -1
+        dms = c.get("31") or []
+        if isinstance(dms, dict):
+            dms = [dms]
+        for dm in dms:
+            if isinstance(dm, dict):
+                out[str(dm.get("3"))] = src
+    return out
+
+
+@st.cache_data(show_spinner=False)
 def repaired_ids(key: str) -> set[str]:
     """Schadensnummern, die laut SHARK schon repariert sind (GT-Feld 31 = 1).
     Reparierte Schäden sind nicht mehr am Auto → zählen nicht als FocalX-Miss."""
@@ -808,6 +833,7 @@ else:
     size_stat: dict[str, tuple[int, int]] = {}
     depth_stat: dict[str, tuple[int, int]] = {}
     cell_stat: dict[tuple[str, str], tuple[int, int]] = {}
+    gate_stat: dict[tuple[str, str], tuple[int, int]] = {}   # (Größe, gate/other)
     basis_cars = basis_damages = 0
     for r in data:
         rev_all = load_review(r["checkin"])
@@ -816,6 +842,7 @@ else:
         basis_cars += 1
         auto = (repaired_ids(plate_key(r["plate"]))
                 | late_ids(plate_key(r["plate"]), r["checkin"]))
+        srcs = source_map(plate_key(r["plate"]))
         truths_r = {str(t["damage_id"]): t for t in r["truths"]}
         for gt_key, v in review_damages(rev_all).items():
             ids = gt_key.split("+")
@@ -830,6 +857,8 @@ else:
             g, t_ = size_stat.get(sb, (0, 0)); size_stat[sb] = (g + found, t_ + 1)
             g, t_ = depth_stat.get(db_, (0, 0)); depth_stat[db_] = (g + found, t_ + 1)
             g, t_ = cell_stat.get((sb, db_), (0, 0)); cell_stat[(sb, db_)] = (g + found, t_ + 1)
+            gk = "gate" if srcs.get(ids[0]) == 10 else "other"
+            g, t_ = gate_stat.get((sb, gk), (0, 0)); gate_stat[(sb, gk)] = (g + found, t_ + 1)
 
     st.caption(f"{basis_damages} validierte Schäden aus {basis_cars} Autos")
 
@@ -934,3 +963,38 @@ else:
     st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
                "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
                "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs.")
+
+    st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
+    _src_cols = [("Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"}),
+                 ("alle Quellen", {"gate", "other"})]
+    _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
+    _g_rows = [f"≥ {b}" for b in _gsizes]
+    gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
+    grecall = pd.DataFrame(float("nan"), index=_g_rows, columns=[c for c, _ in _src_cols])
+    for i, sb in enumerate(_gsizes):
+        bigger = set(_gsizes[i:])
+        for cname, gset in _src_cols:
+            g = sum(v[0] for k, v in gate_stat.items()
+                    if k[0] in bigger and k[1] in gset)
+            t_ = sum(v[1] for k, v in gate_stat.items()
+                     if k[0] in bigger and k[1] in gset)
+            if t_:
+                gtext.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                grecall.loc[f"≥ {sb}", cname] = g / t_
+
+    def _gbg(col: pd.Series) -> list[str]:
+        out = []
+        for i in col.index:
+            v = grecall.loc[i, col.name]
+            if pd.isna(v):
+                out.append("color: #bbb")
+            else:
+                r_, g_, b_, _a = _cmap(v)
+                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
+                           f"{int(b_ * 255)},0.55)")
+        return out
+
+    st.dataframe(gtext.style.apply(_gbg, axis=0), use_container_width=True)
+    st.caption("Erfassungsquelle des DB-Schadens (Case-Feld source_system): "
+               "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
+               "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
