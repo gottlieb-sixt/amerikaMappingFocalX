@@ -1,0 +1,3992 @@
+{
+  "description": "Human-validated gold standard: SHARK DB damage → FocalX finding keys ([] = not found by FocalX). Source: manual review in dashboard.",
+  "exported_at": "2026-07-22 14:38:36",
+  "cars_total": 20,
+  "entries_total": 160,
+  "entries_mapped": 68,
+  "cars": [
+    {
+      "checkin": "FL-07ELXT__eee9604b",
+      "plate": "FL-07ELXT",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "37130722+38916940",
+          "damage_ids": [
+            "37130722",
+            "38916940"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F9",
+              "part": "door-front-left",
+              "type": "dent",
+              "position": "aleft-front"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F9"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:30:11"
+        },
+        {
+          "gt_key": "37358468",
+          "damage_ids": [
+            "37358468"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F1"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:24:50"
+        },
+        {
+          "gt_key": "37397668",
+          "damage_ids": [
+            "37397668"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:25:40"
+        },
+        {
+          "gt_key": "38465073",
+          "damage_ids": [
+            "38465073"
+          ],
+          "part": "Bumper loading strip",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F14"
+          ],
+          "findings": [
+            {
+              "key": "F14",
+              "part": "trunk-cover",
+              "type": "dent",
+              "position": "rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F16"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:46:59"
+        },
+        {
+          "gt_key": "38465074",
+          "damage_ids": [
+            "38465074"
+          ],
+          "part": "Door, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F9",
+              "part": "door-front-left",
+              "type": "dent",
+              "position": "aleft-front"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:49:16"
+        },
+        {
+          "gt_key": "38465075",
+          "damage_ids": [
+            "38465075"
+          ],
+          "part": "Door, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F7"
+          ],
+          "findings": [
+            {
+              "key": "F7",
+              "part": "door-rear-left",
+              "type": "scuffed",
+              "position": "aleft-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F2"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:50:05"
+        },
+        {
+          "gt_key": "38465076",
+          "damage_ids": [
+            "38465076"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F11"
+          ],
+          "findings": [
+            {
+              "key": "F11",
+              "part": "fender-rear-left",
+              "type": "scuffed",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F11"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:47:53"
+        },
+        {
+          "gt_key": "38778221",
+          "damage_ids": [
+            "38778221"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:42:34"
+        },
+        {
+          "gt_key": "38778222",
+          "damage_ids": [
+            "38778222"
+          ],
+          "part": "Door, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:42:18"
+        },
+        {
+          "gt_key": "38916941",
+          "damage_ids": [
+            "38916941"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:25:58"
+        },
+        {
+          "gt_key": "39178139",
+          "damage_ids": [
+            "39178139"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F6"
+          ],
+          "findings": [
+            {
+              "key": "F6",
+              "part": "wheel",
+              "type": "scuffed",
+              "position": "afront-right-wheel"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:40:43"
+        },
+        {
+          "gt_key": "39178140",
+          "damage_ids": [
+            "39178140"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F3"
+          ],
+          "findings": [
+            {
+              "key": "F3",
+              "part": "wheel",
+              "type": "scratched except glass",
+              "position": "arear-right-wheel"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F3"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:37:54"
+        },
+        {
+          "gt_key": "42236073",
+          "damage_ids": [
+            "42236073"
+          ],
+          "part": "Tailgate",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F14"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 16:45:59"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-4633AR__51e9656d",
+      "plate": "FL-4633AR",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "37228251",
+          "damage_ids": [
+            "37228251"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F8"
+          ],
+          "findings": [
+            {
+              "key": "F8",
+              "part": "wheel-rear-left",
+              "type": "curbrash",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": false,
+          "reviewed_at": "2026-07-21 17:28:46"
+        },
+        {
+          "gt_key": "37394322",
+          "damage_ids": [
+            "37394322"
+          ],
+          "part": "Bumper, front",
+          "type": "stone chip",
+          "side": "Passenger side",
+          "severity": "not in driver's vision",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:43:19"
+        },
+        {
+          "gt_key": "37396424",
+          "damage_ids": [
+            "37396424"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F8"
+          ],
+          "findings": [
+            {
+              "key": "F8",
+              "part": "wheel-rear-left",
+              "type": "curbrash",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:52:56"
+        },
+        {
+          "gt_key": "37494153",
+          "damage_ids": [
+            "37494153"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F11"
+          ],
+          "findings": [
+            {
+              "key": "F11",
+              "part": "bumper",
+              "type": "dent",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:51:53"
+        },
+        {
+          "gt_key": "37494154",
+          "damage_ids": [
+            "37494154"
+          ],
+          "part": "Indicator - outside mirror",
+          "type": "broken",
+          "side": "Passenger side",
+          "severity": "complete",
+          "projection": "PASSENGER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kein schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:52:48"
+        },
+        {
+          "gt_key": "37901698",
+          "damage_ids": [
+            "37901698"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F11"
+          ],
+          "findings": [
+            {
+              "key": "F11",
+              "part": "bumper",
+              "type": "dent",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F11"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:40:38"
+        },
+        {
+          "gt_key": "38043180",
+          "damage_ids": [
+            "38043180"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:53:11"
+        },
+        {
+          "gt_key": "38735537",
+          "damage_ids": [
+            "38735537"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:54:00"
+        },
+        {
+          "gt_key": "39538150",
+          "damage_ids": [
+            "39538150"
+          ],
+          "part": "Rocker panel (US)",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:42:45"
+        },
+        {
+          "gt_key": "39538151",
+          "damage_ids": [
+            "39538151"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:42:33"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-46ELZE__9ee54cd4",
+      "plate": "FL-46ELZE",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "37299814+37648959",
+          "damage_ids": [
+            "37299814",
+            "37648959"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F5"
+          ],
+          "findings": [
+            {
+              "key": "F5",
+              "part": "fender-rear-left",
+              "type": "dent",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F5"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:49:22"
+        },
+        {
+          "gt_key": "37426772+38570956",
+          "damage_ids": [
+            "37426772",
+            "38570956"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:44:30"
+        },
+        {
+          "gt_key": "37426773",
+          "damage_ids": [
+            "37426773"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F1"
+          ],
+          "findings": [
+            {
+              "key": "F1",
+              "part": "door-front-right",
+              "type": "scuffed",
+              "position": "aright-front"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:45:10"
+        },
+        {
+          "gt_key": "37463770",
+          "damage_ids": [
+            "37463770"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F2"
+          ],
+          "findings": [
+            {
+              "key": "F2",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:49:14"
+        },
+        {
+          "gt_key": "37648958+39363349",
+          "damage_ids": [
+            "37648958",
+            "39363349"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:50:59"
+        },
+        {
+          "gt_key": "37648961",
+          "damage_ids": [
+            "37648961"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:50:04"
+        },
+        {
+          "gt_key": "37648962",
+          "damage_ids": [
+            "37648962"
+          ],
+          "part": "Tailgate",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:50:43"
+        },
+        {
+          "gt_key": "38241495",
+          "damage_ids": [
+            "38241495"
+          ],
+          "part": "Roof pillar (C), rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter damage",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:51:32"
+        },
+        {
+          "gt_key": "38442559",
+          "damage_ids": [
+            "38442559"
+          ],
+          "part": "Bumper, rear",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:51:58"
+        },
+        {
+          "gt_key": "38570955+39363348",
+          "damage_ids": [
+            "38570955",
+            "39363348"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:52:53"
+        },
+        {
+          "gt_key": "38570957",
+          "damage_ids": [
+            "38570957"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:52:10"
+        },
+        {
+          "gt_key": "38594819",
+          "damage_ids": [
+            "38594819"
+          ],
+          "part": "Door, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F1"
+          ],
+          "findings": [
+            {
+              "key": "F1",
+              "part": "door-front-right",
+              "type": "scuffed",
+              "position": "aright-front"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:00:55"
+        },
+        {
+          "gt_key": "38594820",
+          "damage_ids": [
+            "38594820"
+          ],
+          "part": "Bumper, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter damage",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:00:35"
+        },
+        {
+          "gt_key": "39291295",
+          "damage_ids": [
+            "39291295"
+          ],
+          "part": "Bumper, front",
+          "type": "loose",
+          "side": "Passenger side",
+          "severity": "Not needed",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F4"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "bumper",
+              "type": "scratch",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:00:17"
+        },
+        {
+          "gt_key": "39363346",
+          "damage_ids": [
+            "39363346"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:52:18"
+        },
+        {
+          "gt_key": "39363347",
+          "damage_ids": [
+            "39363347"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:51:11"
+        },
+        {
+          "gt_key": "39363350",
+          "damage_ids": [
+            "39363350"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter damage",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:00:12"
+        },
+        {
+          "gt_key": "39363351",
+          "damage_ids": [
+            "39363351"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelt schaden ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:48:52"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-99EJPQ__8db203ae",
+      "plate": "FL-99EJPQ",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38980677",
+          "damage_ids": [
+            "38980677"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 4 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:02:27"
+        },
+        {
+          "gt_key": "38980678+39672361",
+          "damage_ids": [
+            "38980678",
+            "39672361"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F15"
+          ],
+          "findings": [
+            {
+              "key": "F15",
+              "part": "bumper",
+              "type": "scuffed",
+              "position": "afront-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:01:44"
+        },
+        {
+          "gt_key": "39672362+39700997",
+          "damage_ids": [
+            "39672362",
+            "39700997"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:03:00"
+        },
+        {
+          "gt_key": "39672363",
+          "damage_ids": [
+            "39672363"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:03:24"
+        },
+        {
+          "gt_key": "39794278",
+          "damage_ids": [
+            "39794278"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:03:38"
+        },
+        {
+          "gt_key": "39794279",
+          "damage_ids": [
+            "39794279"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F16"
+          ],
+          "findings": [
+            {
+              "key": "F16",
+              "part": "fender-rear-right",
+              "type": "dent",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F16"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:03:45"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-BZ54JT__9b9bac26",
+      "plate": "FL-BZ54JT",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "41820899",
+          "damage_ids": [
+            "41820899"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:24:49"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-BZ86IZ__7bc0f193",
+      "plate": "FL-BZ86IZ",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "35716316",
+          "damage_ids": [
+            "35716316"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F12"
+          ],
+          "findings": [
+            {
+              "key": "F12",
+              "part": "door-front-right",
+              "type": "dent",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:32:35"
+        },
+        {
+          "gt_key": "36052089",
+          "damage_ids": [
+            "36052089"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "double damage",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:34:55"
+        },
+        {
+          "gt_key": "36055201+39715161",
+          "damage_ids": [
+            "36055201",
+            "39715161"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F17"
+          ],
+          "findings": [
+            {
+              "key": "F17",
+              "part": "fender-rear-right",
+              "type": "dent",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:32:48"
+        },
+        {
+          "gt_key": "36448174",
+          "damage_ids": [
+            "36448174"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F24"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:35:26"
+        },
+        {
+          "gt_key": "37400721",
+          "damage_ids": [
+            "37400721"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:34:00"
+        },
+        {
+          "gt_key": "38079034+38609114",
+          "damage_ids": [
+            "38079034",
+            "38609114"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F12"
+          ],
+          "findings": [
+            {
+              "key": "F12",
+              "part": "door-front-right",
+              "type": "dent",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F12"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:32:14"
+        },
+        {
+          "gt_key": "38215436",
+          "damage_ids": [
+            "38215436"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "damage (doubled)",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:34:27"
+        },
+        {
+          "gt_key": "39191510",
+          "damage_ids": [
+            "39191510"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F17"
+          ],
+          "findings": [
+            {
+              "key": "F17",
+              "part": "fender-rear-right",
+              "type": "dent",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F17"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 17:33:01"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-DS45HR__d1c7075c",
+      "plate": "FL-DS45HR",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "33821218",
+          "damage_ids": [
+            "33821218"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:11:19"
+        },
+        {
+          "gt_key": "34512410",
+          "damage_ids": [
+            "34512410"
+          ],
+          "part": "Aluminium rim front",
+          "type": " ",
+          "side": "Driver side",
+          "severity": "Not needed",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F4"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "wheel-rear-right",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:17:27"
+        },
+        {
+          "gt_key": "34670435",
+          "damage_ids": [
+            "34670435"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kein schaden?",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:16:48"
+        },
+        {
+          "gt_key": "34670915",
+          "damage_ids": [
+            "34670915"
+          ],
+          "part": "Door, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F1"
+          ],
+          "findings": [
+            {
+              "key": "F1",
+              "part": "door-front-right",
+              "type": "dent",
+              "position": "afront-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:15:39"
+        },
+        {
+          "gt_key": "37037369",
+          "damage_ids": [
+            "37037369"
+          ],
+          "part": "Bumper loading strip",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F7",
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F7",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear-left"
+            },
+            {
+              "key": "F9",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F7",
+            "F9"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:16:57"
+        },
+        {
+          "gt_key": "37333709",
+          "damage_ids": [
+            "37333709"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F4"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "wheel-rear-right",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:10:44"
+        },
+        {
+          "gt_key": "38286770",
+          "damage_ids": [
+            "38286770"
+          ],
+          "part": "Steel rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F4"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "wheel-rear-right",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F4"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:16:02"
+        },
+        {
+          "gt_key": "39428782",
+          "damage_ids": [
+            "39428782"
+          ],
+          "part": "Tailgate",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 0.5 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F7",
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F7",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear-left"
+            },
+            {
+              "key": "F9",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 19:11:30"
+        },
+        {
+          "gt_key": "41222817",
+          "damage_ids": [
+            "41222817"
+          ],
+          "part": "Not needed",
+          "type": " ",
+          "side": " ",
+          "severity": "Not needed",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kein db foto ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:15:55"
+        },
+        {
+          "gt_key": "42247171",
+          "damage_ids": [
+            "42247171"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (with paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:15:32"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-DS55GW__8ce6e896",
+      "plate": "FL-DS55GW",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38585061",
+          "damage_ids": [
+            "38585061"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "auf schadensbilder nichts zu erkennen ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:27:21"
+        },
+        {
+          "gt_key": "38746547",
+          "damage_ids": [
+            "38746547"
+          ],
+          "part": "Bumper loading strip",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F9",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:53:38"
+        },
+        {
+          "gt_key": "38887306",
+          "damage_ids": [
+            "38887306"
+          ],
+          "part": "Tailgate",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:27:46"
+        },
+        {
+          "gt_key": "38924333",
+          "damage_ids": [
+            "38924333"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:27:55"
+        },
+        {
+          "gt_key": "38924334",
+          "damage_ids": [
+            "38924334"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:28:18"
+        },
+        {
+          "gt_key": "39514526",
+          "damage_ids": [
+            "39514526"
+          ],
+          "part": "Spoiler, bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch superficial",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:51:45"
+        },
+        {
+          "gt_key": "39514527",
+          "damage_ids": [
+            "39514527"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F12"
+          ],
+          "findings": [
+            {
+              "key": "F12",
+              "part": "grille-lower",
+              "type": "scratch",
+              "position": "front-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F12"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:51:31"
+        },
+        {
+          "gt_key": "39514528",
+          "damage_ids": [
+            "39514528"
+          ],
+          "part": "Spoiler, bumper, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:51:59"
+        },
+        {
+          "gt_key": "39514529",
+          "damage_ids": [
+            "39514529"
+          ],
+          "part": "Spoiler, bumper, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F12"
+          ],
+          "findings": [
+            {
+              "key": "F12",
+              "part": "grille-lower",
+              "type": "scratch",
+              "position": "front-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F12"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:29:55"
+        },
+        {
+          "gt_key": "39763068",
+          "damage_ids": [
+            "39763068"
+          ],
+          "part": "Wheel arch, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F10",
+            "F3"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear-right"
+            },
+            {
+              "key": "F3",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F10",
+            "F3"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:53:05"
+        },
+        {
+          "gt_key": "39763069",
+          "damage_ids": [
+            "39763069"
+          ],
+          "part": "Wheel arch, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F4"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "moulding-fender-front-right",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F4"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:52:57"
+        },
+        {
+          "gt_key": "39763070",
+          "damage_ids": [
+            "39763070"
+          ],
+          "part": "Bumper, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F10",
+            "F3"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear-right"
+            },
+            {
+              "key": "F3",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F10",
+            "F3"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:52:09"
+        },
+        {
+          "gt_key": "39763071+39797788",
+          "damage_ids": [
+            "39763071",
+            "39797788"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (with paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:28:08"
+        },
+        {
+          "gt_key": "39797787",
+          "damage_ids": [
+            "39797787"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "double damage",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:53:18"
+        },
+        {
+          "gt_key": "41734360",
+          "damage_ids": [
+            "41734360"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F11"
+          ],
+          "findings": [
+            {
+              "key": "F11",
+              "part": "wheel-front-left",
+              "type": "curbrash",
+              "position": "front-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 10:53:27"
+        },
+        {
+          "gt_key": "41734361",
+          "damage_ids": [
+            "41734361"
+          ],
+          "part": "Wheel arch, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:27:48"
+        },
+        {
+          "gt_key": "41739197",
+          "damage_ids": [
+            "41739197"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:17:25"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-DX29HV__9e7a5587",
+      "plate": "FL-DX29HV",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "36405371",
+          "damage_ids": [
+            "36405371"
+          ],
+          "part": "Door, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:30:40"
+        },
+        {
+          "gt_key": "37008181",
+          "damage_ids": [
+            "37008181"
+          ],
+          "part": "Door, rear edge",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:40:35"
+        },
+        {
+          "gt_key": "37393881",
+          "damage_ids": [
+            "37393881"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kein schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:37:31"
+        },
+        {
+          "gt_key": "38263507",
+          "damage_ids": [
+            "38263507"
+          ],
+          "part": "Door, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F14"
+          ],
+          "findings": [
+            {
+              "key": "F14",
+              "part": "door-rear-right",
+              "type": "dent",
+              "position": "rear-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F14"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:39:48"
+        },
+        {
+          "gt_key": "38311500",
+          "damage_ids": [
+            "38311500"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:38:09"
+        },
+        {
+          "gt_key": "38311501",
+          "damage_ids": [
+            "38311501"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:37:51"
+        },
+        {
+          "gt_key": "38311653",
+          "damage_ids": [
+            "38311653"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:38:28"
+        },
+        {
+          "gt_key": "38556373",
+          "damage_ids": [
+            "38556373"
+          ],
+          "part": "Door, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [
+            "F14"
+          ],
+          "findings": [
+            {
+              "key": "F14",
+              "part": "door-rear-right",
+              "type": "dent",
+              "position": "rear-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:38:55"
+        },
+        {
+          "gt_key": "38564360",
+          "damage_ids": [
+            "38564360"
+          ],
+          "part": "Tailgate",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:39:22"
+        },
+        {
+          "gt_key": "38884923",
+          "damage_ids": [
+            "38884923"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F18"
+          ],
+          "findings": [
+            {
+              "key": "F18",
+              "part": "wheel-rear-right",
+              "type": "curbrash",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F16"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:39:26"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-DX63HL__8ccd398e",
+      "plate": "FL-DX63HL",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "39532731",
+          "damage_ids": [
+            "39532731"
+          ],
+          "part": "Door, front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:30:01"
+        },
+        {
+          "gt_key": "39532732",
+          "damage_ids": [
+            "39532732"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:29:49"
+        },
+        {
+          "gt_key": "39558960",
+          "damage_ids": [
+            "39558960"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F3"
+          ],
+          "findings": [
+            {
+              "key": "F3",
+              "part": "wheel",
+              "type": "scratched except glass",
+              "position": "afront-right-wheel"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F3"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:28:28"
+        },
+        {
+          "gt_key": "39558961",
+          "damage_ids": [
+            "39558961"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 0.5 inch (with paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:28:23"
+        },
+        {
+          "gt_key": "41228496",
+          "damage_ids": [
+            "41228496"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kein schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:28:47"
+        },
+        {
+          "gt_key": "41228497",
+          "damage_ids": [
+            "41228497"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F5"
+          ],
+          "findings": [
+            {
+              "key": "F5",
+              "part": "wheel-front-left",
+              "type": "scratch",
+              "position": "afront-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F5"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:28:52"
+        },
+        {
+          "gt_key": "41436496",
+          "damage_ids": [
+            "41436496"
+          ],
+          "part": "Bumper loading strip",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F10"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F10"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:29:08"
+        },
+        {
+          "gt_key": "41436497",
+          "damage_ids": [
+            "41436497"
+          ],
+          "part": "Bumper loading strip",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [
+            "F10"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F10",
+            "F12"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:29:15"
+        },
+        {
+          "gt_key": "41596215",
+          "damage_ids": [
+            "41596215"
+          ],
+          "part": "Quarterpanel (US)",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F7"
+          ],
+          "findings": [
+            {
+              "key": "F7",
+              "part": "fender-rear-left",
+              "type": "scratch",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F7"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:29:02"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-FKFB79__5a528dee",
+      "plate": "FL-FKFB79",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "41670164",
+          "damage_ids": [
+            "41670164"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F1"
+          ],
+          "findings": [
+            {
+              "key": "F1",
+              "part": "bumper",
+              "type": "contamination-exterior",
+              "position": "afront-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-21 18:25:49"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-FKFK43__41272e8d",
+      "plate": "FL-FKFK43",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "37830338",
+          "damage_ids": [
+            "37830338"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F11"
+          ],
+          "findings": [
+            {
+              "key": "F11",
+              "part": "wheel-front-right",
+              "type": "curbrash",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F11"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 11:56:46"
+        },
+        {
+          "gt_key": "38371809",
+          "damage_ids": [
+            "38371809"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 12:04:53"
+        },
+        {
+          "gt_key": "38394730+39563640",
+          "damage_ids": [
+            "38394730",
+            "39563640"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 12:05:39"
+        },
+        {
+          "gt_key": "38394731+39495145",
+          "damage_ids": [
+            "38394731",
+            "39495145"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 12:05:06"
+        },
+        {
+          "gt_key": "38718656",
+          "damage_ids": [
+            "38718656"
+          ],
+          "part": "Fuel tank flap",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F10"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "fender-rear-right",
+              "type": "misaligned",
+              "position": "rear-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 12:06:22"
+        },
+        {
+          "gt_key": "38718657",
+          "damage_ids": [
+            "38718657"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F11"
+          ],
+          "findings": [
+            {
+              "key": "F11",
+              "part": "wheel-front-right",
+              "type": "curbrash",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F7"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 12:06:31"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-FKGS66__dfce59c6",
+      "plate": "FL-FKGS66",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38628315",
+          "damage_ids": [
+            "38628315"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "glas",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:11:50"
+        },
+        {
+          "gt_key": "38628317",
+          "damage_ids": [
+            "38628317"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "glas",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:12:05"
+        },
+        {
+          "gt_key": "38877803+39603650",
+          "damage_ids": [
+            "38877803",
+            "39603650"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F6"
+          ],
+          "findings": [
+            {
+              "key": "F6",
+              "part": "door-front-right",
+              "type": "scuffed",
+              "position": "aright-front"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:10:50"
+        },
+        {
+          "gt_key": "39039356",
+          "damage_ids": [
+            "39039356"
+          ],
+          "part": "Wheel arch, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F2"
+          ],
+          "findings": [
+            {
+              "key": "F2",
+              "part": "moulding-fender-front-right",
+              "type": "scratch",
+              "position": "right-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F2"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:11:40"
+        },
+        {
+          "gt_key": "41358318",
+          "damage_ids": [
+            "41358318"
+          ],
+          "part": "Bumper, front",
+          "type": "stone chip",
+          "side": "Driver side",
+          "severity": "not in driver's vision",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:12:25"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-FKHC38__d403240c",
+      "plate": "FL-FKHC38",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38143759",
+          "damage_ids": [
+            "38143759"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:13:19"
+        },
+        {
+          "gt_key": "38389473",
+          "damage_ids": [
+            "38389473"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "< 2 inch superficial",
+          "projection": "FRONT_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:14:29"
+        },
+        {
+          "gt_key": "38854484",
+          "damage_ids": [
+            "38854484"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:14:49"
+        },
+        {
+          "gt_key": "39532686",
+          "damage_ids": [
+            "39532686"
+          ],
+          "part": "Boot / Rear door bottom",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 0.5 inch (with paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:23:34"
+        },
+        {
+          "gt_key": "39555961",
+          "damage_ids": [
+            "39555961"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (with paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:14:02"
+        },
+        {
+          "gt_key": "39596505",
+          "damage_ids": [
+            "39596505"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:15:04"
+        },
+        {
+          "gt_key": "39665336",
+          "damage_ids": [
+            "39665336"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 0.5 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:15:19"
+        },
+        {
+          "gt_key": "41253012",
+          "damage_ids": [
+            "41253012"
+          ],
+          "part": "Door, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:17:54"
+        },
+        {
+          "gt_key": "41673277",
+          "damage_ids": [
+            "41673277"
+          ],
+          "part": "Vehicle does not start",
+          "type": " ",
+          "side": " ",
+          "severity": "Not needed",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kann man nicht sehen ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:18:36"
+        },
+        {
+          "gt_key": "42233553",
+          "damage_ids": [
+            "42233553"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:18:21"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-FKJQ81__161b5db2",
+      "plate": "FL-FKJQ81",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "39214911",
+          "damage_ids": [
+            "39214911"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (with paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:28:00"
+        },
+        {
+          "gt_key": "39214914",
+          "damage_ids": [
+            "39214914"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (with paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "light reflection",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:28:12"
+        },
+        {
+          "gt_key": "39214915",
+          "damage_ids": [
+            "39214915"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:27:43"
+        },
+        {
+          "gt_key": "39214916",
+          "damage_ids": [
+            "39214916"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F9",
+              "part": "wheel-front-right",
+              "type": "scuffed",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F9"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:27:47"
+        },
+        {
+          "gt_key": "39518615",
+          "damage_ids": [
+            "39518615"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F10"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "fender-rear-left",
+              "type": "scratch",
+              "position": "rear-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F10"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:28:23"
+        },
+        {
+          "gt_key": "41394225",
+          "damage_ids": [
+            "41394225"
+          ],
+          "part": "Quarterpanel (US)",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 0.5 inch (with paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:28:49"
+        },
+        {
+          "gt_key": "41679273",
+          "damage_ids": [
+            "41679273"
+          ],
+          "part": "Bumper, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F4",
+            "F6"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "door-rear-left",
+              "type": "scratched except glass",
+              "position": "arear-left-wheel"
+            },
+            {
+              "key": "F6",
+              "part": "door-rear-left",
+              "type": "scratched except glass",
+              "position": "aleft-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:29:48"
+        },
+        {
+          "gt_key": "41679274",
+          "damage_ids": [
+            "41679274"
+          ],
+          "part": "Door, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F4",
+            "F6"
+          ],
+          "findings": [
+            {
+              "key": "F4",
+              "part": "door-rear-left",
+              "type": "scratched except glass",
+              "position": "arear-left-wheel"
+            },
+            {
+              "key": "F6",
+              "part": "door-rear-left",
+              "type": "scratched except glass",
+              "position": "aleft-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F4",
+            "F6"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:28:58"
+        },
+        {
+          "gt_key": "41679275",
+          "damage_ids": [
+            "41679275"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F5",
+            "F7"
+          ],
+          "findings": [
+            {
+              "key": "F5",
+              "part": "fender-rear-left",
+              "type": "scratched except glass",
+              "position": "arear-left-wheel"
+            },
+            {
+              "key": "F7",
+              "part": "fender-rear-left",
+              "type": "scratched except glass",
+              "position": "aleft-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F5",
+            "F7"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:29:01"
+        },
+        {
+          "gt_key": "41862765",
+          "damage_ids": [
+            "41862765"
+          ],
+          "part": "Bumper loading strip",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "2-4 inch superficial",
+          "projection": "BACK_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:28:34"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-FKLZ01__e00bee52",
+      "plate": "FL-FKLZ01",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38854273",
+          "damage_ids": [
+            "38854273"
+          ],
+          "part": "Door, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:30:46"
+        },
+        {
+          "gt_key": "39204291",
+          "damage_ids": [
+            "39204291"
+          ],
+          "part": "Door, front",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:31:13"
+        },
+        {
+          "gt_key": "41836395",
+          "damage_ids": [
+            "41836395"
+          ],
+          "part": "Door, front edge",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:31:47"
+        },
+        {
+          "gt_key": "41946133",
+          "damage_ids": [
+            "41946133"
+          ],
+          "part": "Hood (US)",
+          "type": "scratch",
+          "side": "middle",
+          "severity": "2-4 inch superficial",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:31:33"
+        },
+        {
+          "gt_key": "42119799",
+          "damage_ids": [
+            "42119799"
+          ],
+          "part": "Hood (US)",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:02:53"
+        },
+        {
+          "gt_key": "42119800",
+          "damage_ids": [
+            "42119800"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:33:09"
+        },
+        {
+          "gt_key": "42119801",
+          "damage_ids": [
+            "42119801"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 13:32:37"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-QNCN14__122a5cca",
+      "plate": "FL-QNCN14",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38871802",
+          "damage_ids": [
+            "38871802"
+          ],
+          "part": "Bumper, rear",
+          "type": "Dent",
+          "side": "middle",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "BACK_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F3",
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F3",
+              "part": "fender-rear-left",
+              "type": "scratch",
+              "position": "rear-left"
+            },
+            {
+              "key": "F9",
+              "part": "fender-rear-left",
+              "type": "scratch",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:06:08"
+        },
+        {
+          "gt_key": "38905350+39674121",
+          "damage_ids": [
+            "38905350",
+            "39674121"
+          ],
+          "part": "Wing / Fender, front",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:07:00"
+        },
+        {
+          "gt_key": "39184531",
+          "damage_ids": [
+            "39184531"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F15"
+          ],
+          "findings": [
+            {
+              "key": "F15",
+              "part": "fender-rear-left",
+              "type": "scuffed",
+              "position": "aleft-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F15"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:12:57"
+        },
+        {
+          "gt_key": "39303861",
+          "damage_ids": [
+            "39303861"
+          ],
+          "part": "Bumper, rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "BACK_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F12",
+            "F8"
+          ],
+          "findings": [
+            {
+              "key": "F12",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "right-rear"
+            },
+            {
+              "key": "F8",
+              "part": "rear-bumper",
+              "type": "scuffed",
+              "position": "rear-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:22:06"
+        },
+        {
+          "gt_key": "39303862",
+          "damage_ids": [
+            "39303862"
+          ],
+          "part": "Wheel arch, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "up to 0.5 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F6"
+          ],
+          "findings": [
+            {
+              "key": "F6",
+              "part": "fender-rear-right",
+              "type": "dent",
+              "position": "rear-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F6"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:22:24"
+        },
+        {
+          "gt_key": "39401140",
+          "damage_ids": [
+            "39401140"
+          ],
+          "part": "Quarterpanel (US)",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch superficial",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F10",
+            "F5"
+          ],
+          "findings": [
+            {
+              "key": "F10",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "left-rear"
+            },
+            {
+              "key": "F5",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:12:35"
+        },
+        {
+          "gt_key": "39674120",
+          "damage_ids": [
+            "39674120"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_LEFT",
+          "finding_keys": [
+            "F6"
+          ],
+          "findings": [
+            {
+              "key": "F6",
+              "part": "fender-rear-right",
+              "type": "dent",
+              "position": "rear-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F6"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:07:08"
+        },
+        {
+          "gt_key": "39674122",
+          "damage_ids": [
+            "39674122"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "Dent",
+          "side": "Driver side",
+          "severity": "up to 1 inch (without paint damage)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F3",
+            "F9"
+          ],
+          "findings": [
+            {
+              "key": "F3",
+              "part": "fender-rear-left",
+              "type": "scratch",
+              "position": "rear-left"
+            },
+            {
+              "key": "F9",
+              "part": "fender-rear-left",
+              "type": "scratch",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:10:37"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-RATD97__7dea7f05",
+      "plate": "FL-RATD97",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "36333144",
+          "damage_ids": [
+            "36333144"
+          ],
+          "part": "Wing / Fender, rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [
+            "F5",
+            "F7"
+          ],
+          "findings": [
+            {
+              "key": "F5",
+              "part": "trunk-cover",
+              "type": "scratch",
+              "position": "rear"
+            },
+            {
+              "key": "F7",
+              "part": "trunk-cover",
+              "type": "scratch",
+              "position": "rear-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F5",
+            "F7"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:28:41"
+        },
+        {
+          "gt_key": "37013091",
+          "damage_ids": [
+            "37013091"
+          ],
+          "part": "Bumper, front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch superficial",
+          "projection": "PASSENGER_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "schaden nicht mehr da ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:30:40"
+        },
+        {
+          "gt_key": "38937356",
+          "damage_ids": [
+            "38937356"
+          ],
+          "part": "Bumper, front",
+          "type": "crash",
+          "side": "Driver side",
+          "severity": "Not needed",
+          "projection": "FRONT_SIDE",
+          "segment": "MID_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "schaden nicht mehr da ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:29:09"
+        },
+        {
+          "gt_key": "39022093",
+          "damage_ids": [
+            "39022093"
+          ],
+          "part": "Side view Mirror",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "> 4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "TOP_MID",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:23:31"
+        },
+        {
+          "gt_key": "41964964",
+          "damage_ids": [
+            "41964964"
+          ],
+          "part": "Parking sensor, front",
+          "type": "loose",
+          "side": "Passenger side",
+          "severity": "Not needed",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "kann man nicht sehen ",
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:25:29"
+        }
+      ]
+    },
+    {
+      "checkin": "FL-SNIK60__1e4650f2",
+      "plate": "FL-SNIK60",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "42235525",
+          "damage_ids": [
+            "42235525"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F5"
+          ],
+          "findings": [
+            {
+              "key": "F5",
+              "part": "wheel-rear-left",
+              "type": "curbrash",
+              "position": "left-rear"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F5"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:30:55"
+        }
+      ]
+    },
+    {
+      "checkin": "MA-5SRL94__dd83ea15",
+      "plate": "MA-5SRL94",
+      "review_done": true,
+      "damages": [
+        {
+          "gt_key": "38813965",
+          "damage_ids": [
+            "38813965"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F3"
+          ],
+          "findings": [
+            {
+              "key": "F3",
+              "part": "wheel",
+              "type": "scratched except glass",
+              "position": "arear-left-wheel"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:32:58"
+        },
+        {
+          "gt_key": "38813966",
+          "damage_ids": [
+            "38813966"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "< 2 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_RIGHT",
+          "finding_keys": [
+            "F1"
+          ],
+          "findings": [
+            {
+              "key": "F1",
+              "part": "wheel",
+              "type": "scuffed",
+              "position": "afront-left-wheel"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:31:20"
+        },
+        {
+          "gt_key": "38896788",
+          "damage_ids": [
+            "38896788"
+          ],
+          "part": "Hood (US)",
+          "type": "Dent",
+          "side": "Passenger side",
+          "severity": "> 1 inch (without paint damage)",
+          "projection": "",
+          "segment": "TOP_LEFT",
+          "finding_keys": [
+            "F18"
+          ],
+          "findings": [
+            {
+              "key": "F18",
+              "part": "bonnet",
+              "type": "dent",
+              "position": "front-right"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F18"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:33:50"
+        },
+        {
+          "gt_key": "39140995",
+          "damage_ids": [
+            "39140995"
+          ],
+          "part": "Aluminium rim rear",
+          "type": "scratch",
+          "side": "Passenger side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "PASSENGER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F3"
+          ],
+          "findings": [
+            {
+              "key": "F3",
+              "part": "wheel",
+              "type": "scratched except glass",
+              "position": "arear-left-wheel"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F15"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:33:15"
+        },
+        {
+          "gt_key": "39140996",
+          "damage_ids": [
+            "39140996"
+          ],
+          "part": "Aluminium rim front",
+          "type": "scratch",
+          "side": "Driver side",
+          "severity": "2-4 inch (down to primer)",
+          "projection": "DRIVER_SIDE",
+          "segment": "BOTTOM_LEFT",
+          "finding_keys": [
+            "F5"
+          ],
+          "findings": [
+            {
+              "key": "F5",
+              "part": "wheel-front-left",
+              "type": "scratch",
+              "position": "afront-left"
+            }
+          ],
+          "excluded": false,
+          "exclude_reason": null,
+          "ai_proposal_at_review": [
+            "F1",
+            "F5",
+            "F9"
+          ],
+          "ai_available": true,
+          "reviewed_at": "2026-07-22 14:33:40"
+        }
+      ]
+    }
+  ]
+}
