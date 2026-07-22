@@ -409,6 +409,19 @@ elif mode.startswith("🔍"):
     if done < len(gcl) and review_done(review):
         st.warning(f"⚠️ Als abgeschlossen markiert, aber erst {done}/{len(gcl)} Schäden reviewt.")
 
+    # Alle Original-Fotos des Check-ins (die an FocalX gingen) — zum Selbst-Prüfen
+    _photo_dirs = sorted((ROOT / "data" / "raw").glob(f"*/{sel}"))
+    with st.expander("📷 Alle Check-in-Fotos des Autos (Original, wie an FocalX geschickt)"):
+        _shots = sorted(_photo_dirs[0].glob("*.jpg")) if _photo_dirs else []
+        if _shots:
+            st.caption(f"{len(_shots)} Fotos · Klick aufs Bild: groß & zoombar "
+                       "(Mausrad zoomt, Ziehen verschiebt, Esc schließt)")
+            _thumbs = [gallery.thumb(pth, pth.stem, size=170) for pth in _shots]
+            components.html(gallery.render([gallery.imgrow(*_thumbs)]),
+                            height=620, scrolling=True)
+        else:
+            st.caption("Keine Roh-Fotos zu diesem Check-in gefunden.")
+
     # Sticky-Header: der gerade gescrollte Schaden bleibt oben sichtbar,
     # bis seine Kachel-Sektion endet (CSS auf st.container(key=…)).
     # Sticky per JS: findet die Marker in den GT-Karten, macht deren Container
