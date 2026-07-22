@@ -532,7 +532,8 @@ elif mode.startswith("🔍"):
                             if len(imgs) == 1:
                                 st.image(str(imgs[0][1]), use_container_width=True)
                             elif imgs:
-                                # Klick aufs Bild schaltet zum nächsten Cluster-Mitglied
+                                # Klick aufs Bild schaltet zum nächsten Cluster-Mitglied.
+                                # Optik identisch zu st.image; Chip nur bei Hover.
                                 import base64 as _b64
                                 _payload = json.dumps([
                                     {"k": k,
@@ -540,28 +541,37 @@ elif mode.startswith("🔍"):
                                             + _b64.b64encode(p_.read_bytes()).decode()}
                                     for k, p_ in imgs])
                                 components.html(f"""
+                                <body style="margin:0">
                                 <div id="cyc" style="position:relative;cursor:pointer">
-                                  <img id="im" style="width:100%;height:210px;
-                                       object-fit:cover;border-radius:8px">
-                                  <div id="badge" style="position:absolute;top:6px;left:6px;
-                                       background:rgba(0,0,0,.65);color:#fff;padding:2px 8px;
-                                       border-radius:10px;font-size:12px;
-                                       font-family:sans-serif"></div>
+                                  <img id="im" style="width:100%;display:block;
+                                       border-radius:0.5rem">
+                                  <div id="chip" style="position:absolute;bottom:6px;
+                                       right:6px;background:rgba(0,0,0,.65);color:#fff;
+                                       padding:2px 8px;border-radius:10px;font-size:12px;
+                                       font-family:sans-serif;opacity:0;
+                                       transition:opacity .15s"></div>
                                 </div>
                                 <script>
                                   const imgs = {_payload}; let i = 0;
                                   const im = document.getElementById('im');
-                                  const badge = document.getElementById('badge');
+                                  const chip = document.getElementById('chip');
+                                  const cyc = document.getElementById('cyc');
+                                  function fit() {{
+                                    if (window.frameElement)
+                                      window.frameElement.style.height =
+                                          document.body.scrollHeight + 'px';
+                                  }}
                                   function show() {{
                                     im.src = imgs[i].src;
-                                    badge.textContent = imgs[i].k + ' (' + (i+1) + '/'
-                                        + imgs.length + ') — klicken: nächstes Bild';
+                                    chip.textContent = imgs[i].k + ' (' + (i+1) + '/'
+                                        + imgs.length + ')';
                                   }}
-                                  document.getElementById('cyc').onclick = () => {{
-                                    i = (i + 1) % imgs.length; show();
-                                  }};
+                                  im.onload = fit;
+                                  cyc.onclick = () => {{ i = (i+1) % imgs.length; show(); }};
+                                  cyc.onmouseenter = () => chip.style.opacity = 1;
+                                  cyc.onmouseleave = () => chip.style.opacity = 0;
                                   show();
-                                </script>""", height=218)
+                                </script></body>""", height=240)
                             st.caption(f"**{'+'.join(keys)}** · {f0['part']} · {f0['type']}"
                                        + (" · 🧠 **AI-Vorschlag**" if is_ai else ""))
                             label = ("✅ Gewählt" if is_current
