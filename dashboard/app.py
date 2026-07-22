@@ -868,49 +868,44 @@ else:
              "Gesamt": stat[b][1], "Recall": stat[b][0] / stat[b][1]}
             for b in order if b in stat])
 
-    st.subheader("Nach Größe")
-    if True:
-        # Ordinale Leiter klein → groß; kumuliert = dieser Bucket und alles Größere
-        _ladder = [b for b in ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll",
-                               "2–4 Zoll", "> 4 Zoll"] if b in size_stat]
-        import matplotlib as _mpl
-        _rdylgn = _mpl.colormaps["RdYlGn"]
-
-        def _cellbg(v: float | None) -> str:
-            if v is None:
-                return "color: #bbb"
-            r_, g_, b_, _a = _rdylgn(v)
-            return (f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
-                    f"{int(b_ * 255)},0.55)")
-
-        _rows, _kum_vals = [], []
-        for i, b in enumerate(_ladder):
-            g, t_ = size_stat[b]
-            cg = sum(size_stat[x][0] for x in _ladder[i:])
-            ct = sum(size_stat[x][1] for x in _ladder[i:])
-            _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_,
-                          "ab hier u. größer (kum.)": f"{cg}/{ct}",
-                          "Recall (kum.)": f"{cg / ct:.0%}"})
-            _kum_vals.append(cg / ct)
-        for b in ("komplett", "ohne Angabe"):
-            if b in size_stat:
-                g, t_ = size_stat[b]
-                _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_,
-                              "ab hier u. größer (kum.)": "–", "Recall (kum.)": "–"})
-                _kum_vals.append(None)
-        st.dataframe(pd.DataFrame(_rows)
-                     .style.apply(lambda col: [_cellbg(v) for v in _kum_vals],
-                                  subset=["Recall (kum.)"], axis=0),
-                     use_container_width=True, hide_index=True)
-        st.caption("kum. = dieser Bucket **und alle größeren**: Zeile 2–4 Zoll = "
-                   "Recall für alle Schäden ab 2 Zoll, oberste Zeile = alle Größen.")
-
-    # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
-    st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
     import matplotlib
     _cmap = matplotlib.colormaps["RdYlGn"]
     _MASTER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
 
+    st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
+    _src_cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
+    _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
+    _g_rows = [f"≥ {b}" for b in _gsizes]
+    gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
+    grecall = pd.DataFrame(float("nan"), index=_g_rows, columns=[c for c, _ in _src_cols])
+    for i, sb in enumerate(_gsizes):
+        bigger = set(_gsizes[i:])
+        for cname, gset in _src_cols:
+            g = sum(v[0] for k, v in gate_stat.items()
+                    if k[0] in bigger and k[1] in gset)
+            t_ = sum(v[1] for k, v in gate_stat.items()
+                     if k[0] in bigger and k[1] in gset)
+            if t_:
+                gtext.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                grecall.loc[f"≥ {sb}", cname] = g / t_
+
+    def _gbg(col: pd.Series) -> list[str]:
+        out = []
+        for i in col.index:
+            v = grecall.loc[i, col.name]
+            if pd.isna(v):
+                out.append("color: #bbb")
+            else:
+                r_, g_, b_, _a = _cmap(v)
+                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
+                           f"{int(b_ * 255)},0.55)")
+        return out
+
+    st.dataframe(gtext.style.apply(_gbg, axis=0), use_container_width=True)
+    st.caption("Erfassungsquelle des DB-Schadens (Case-Feld source_system): "
+               "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
+               "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
+    st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
     def _cum_matrix(sev_cols: list[tuple[str, set]], all_sizes: bool = False) -> None:
         all_sev = set().union(*[d for _, d in sev_cols])
         sizes = (_MASTER if all_sizes else
@@ -964,36 +959,3 @@ else:
                "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
                "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs.")
 
-    st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
-    _src_cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
-    _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
-    _g_rows = [f"≥ {b}" for b in _gsizes]
-    gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
-    grecall = pd.DataFrame(float("nan"), index=_g_rows, columns=[c for c, _ in _src_cols])
-    for i, sb in enumerate(_gsizes):
-        bigger = set(_gsizes[i:])
-        for cname, gset in _src_cols:
-            g = sum(v[0] for k, v in gate_stat.items()
-                    if k[0] in bigger and k[1] in gset)
-            t_ = sum(v[1] for k, v in gate_stat.items()
-                     if k[0] in bigger and k[1] in gset)
-            if t_:
-                gtext.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
-                grecall.loc[f"≥ {sb}", cname] = g / t_
-
-    def _gbg(col: pd.Series) -> list[str]:
-        out = []
-        for i in col.index:
-            v = grecall.loc[i, col.name]
-            if pd.isna(v):
-                out.append("color: #bbb")
-            else:
-                r_, g_, b_, _a = _cmap(v)
-                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
-                           f"{int(b_ * 255)},0.55)")
-        return out
-
-    st.dataframe(gtext.style.apply(_gbg, axis=0), use_container_width=True)
-    st.caption("Erfassungsquelle des DB-Schadens (Case-Feld source_system): "
-               "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
-               "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
