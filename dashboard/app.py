@@ -64,6 +64,20 @@ def gt_images(key: str, damage_id: str) -> list[Path]:
 
 
 @st.cache_data(show_spinner=False)
+def position_photo(checkin: str, focalx_pos: str) -> str | None:
+    """Original-Check-in-Foto zu einem FocalX-Positionslabel (Fallback,
+    wenn ein Finding kein Close-up hat)."""
+    from eval.pipeline import POSITION_MAP
+    inv = {v: k for k, v in POSITION_MAP.items()}
+    pos_name = inv.get(focalx_pos)
+    dirs = sorted((ROOT / "data" / "raw").glob(f"*/{checkin}"))
+    if not pos_name or not dirs:
+        return None
+    f = dirs[0] / f"{pos_name}.jpg"
+    return str(f) if f.exists() else None
+
+
+@st.cache_data(show_spinner=False)
 def late_ids(key: str, checkin: str) -> set[str]:
     """Schadensnummern, deren Fall erst NACH dem Check-in-Tag angelegt wurde
     (Fall-Feld 34 = damage_created_at) — konnte auf den Fotos nicht zu sehen sein."""
@@ -627,9 +641,16 @@ elif mode.startswith("🔍"):
                         with st.container(border=True):
                             # ALLE Mitglieder des Clusters zeigen — eine falsche
                             # Gruppierung muss sichtbar sein, nicht versteckt.
-                            imgs = [(k, ROOT / findings[k]["closeup"])
-                                    for k in keys if findings[k].get("closeup")]
-                            imgs = [(k, p_) for k, p_ in imgs if p_.exists()]
+                            imgs = []
+                            for k in keys:
+                                cu_ = (ROOT / findings[k]["closeup"]
+                                       if findings[k].get("closeup") else None)
+                                if cu_ and cu_.exists():
+                                    imgs.append((k, cu_))
+                                else:
+                                    alt = position_photo(sel, findings[k]["position"])
+                                    if alt:
+                                        imgs.append((f"{k} · Originalfoto", Path(alt)))
                             if len(imgs) == 1:
                                 st.image(str(imgs[0][1]), use_container_width=True)
                             elif imgs:
