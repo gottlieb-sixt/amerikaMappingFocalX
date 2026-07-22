@@ -907,23 +907,22 @@ else:
                "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
                "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
-    def _cum_matrix(sev_cols: list[tuple[str, set]], all_sizes: bool = False,
-                    sources: frozenset = frozenset({"gate", "other"})) -> None:
-        all_sev = set().union(*[d for _, d in sev_cols])
+    def _cum_matrix(sev_cols: list[tuple[str, set, set]], all_sizes: bool = False) -> None:
+        all_sev = set().union(*[d for _, d, _src in sev_cols])
         sizes = (_MASTER if all_sizes else
                  [b for b in _MASTER
                   if any(k[0] == b and k[1] in all_sev for k in cell_stat)])
         rows_lbl = [f"≥ {b}" for b in sizes]
-        text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in sev_cols])
+        text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _, _s in sev_cols])
         recall = pd.DataFrame(float("nan"), index=rows_lbl,
-                              columns=[c for c, _ in sev_cols])
+                              columns=[c for c, _, _s in sev_cols])
         for i, sb in enumerate(sizes):
             bigger = set(sizes[i:])
-            for cname, dset in sev_cols:
+            for cname, dset, srcset in sev_cols:
                 g = sum(v[0] for k, v in cell_stat.items()
-                        if k[0] in bigger and k[1] in dset and k[2] in sources)
+                        if k[0] in bigger and k[1] in dset and k[2] in srcset)
                 t_ = sum(v[1] for k, v in cell_stat.items()
-                         if k[0] in bigger and k[1] in dset and k[2] in sources)
+                         if k[0] in bigger and k[1] in dset and k[2] in srcset)
                 if t_:
                     text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
                     recall.loc[f"≥ {sb}", cname] = g / t_
@@ -942,40 +941,30 @@ else:
 
         st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
 
-    col_k, col_de = st.columns(2)
-    with col_k:
-        st.markdown("**Kratzer** — Größe × Tiefe")
-        _cum_matrix([
-            ("oberflächlich", {"Kratzer oberflächlich"}),
-            ("oberflächlich + Grundierung (alle Kratzer)",
-             {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
-        ], all_sizes=True)
-    with col_de:
-        st.markdown("**Delle** — Größe × Lackschaden")
-        _cum_matrix([
-            ("ohne Lack", {"Delle ohne Lackschaden"}),
-            ("ohne + mit Lack (alle Dellen)",
-             {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
-        ], all_sizes=True)
-    _KRATZER_COLS = [
-        ("oberflächlich", {"Kratzer oberflächlich"}),
-        ("oberflächlich + Grundierung (alle Kratzer)",
-         {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
-    ]
-    _DELLE_COLS = [
-        ("ohne Lack", {"Delle ohne Lackschaden"}),
-        ("ohne + mit Lack (alle Dellen)",
-         {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
-    ]
-    col_k2, col_de2 = st.columns(2)
-    with col_k2:
-        st.markdown("**Kratzer ohne Damage Gate** — Größe × Tiefe")
-        _cum_matrix(_KRATZER_COLS, all_sizes=True, sources=frozenset({"other"}))
-    with col_de2:
-        st.markdown("**Delle ohne Damage Gate** — Größe × Lackschaden")
-        _cum_matrix(_DELLE_COLS, all_sizes=True, sources=frozenset({"other"}))
+    ALLQ = {"gate", "other"}
+    OHNE = {"other"}
+    K_O = {"Kratzer oberflächlich"}
+    K_ALL = {"Kratzer oberflächlich", "Kratzer bis Grundierung"}
+    D_O = {"Delle ohne Lackschaden"}
+    D_ALL = {"Delle ohne Lackschaden", "Delle mit Lackschaden"}
+
+    st.markdown("**Kratzer** — Größe × Tiefe, jeweils mit / ohne Damage Gate")
+    _cum_matrix([
+        ("oberflächlich", K_O, ALLQ),
+        ("oberflächlich · ohne Gate", K_O, OHNE),
+        ("alle Kratzer", K_ALL, ALLQ),
+        ("alle Kratzer · ohne Gate", K_ALL, OHNE),
+    ], all_sizes=True)
+
+    st.markdown("**Delle** — Größe × Lackschaden, jeweils mit / ohne Damage Gate")
+    _cum_matrix([
+        ("ohne Lack", D_O, ALLQ),
+        ("ohne Lack · ohne Gate", D_O, OHNE),
+        ("alle Dellen", D_ALL, ALLQ),
+        ("alle Dellen · ohne Gate", D_ALL, OHNE),
+    ], all_sizes=True)
     st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
                "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
-               "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs. "
-               "Untere Reihe: nur menschlich erfasste Schäden (ohne Damage Gate).")
+               "ohne Gate = nur menschlich erfasste Schäden · "
+               "Zelle: gefunden/gesamt (Recall).")
 
