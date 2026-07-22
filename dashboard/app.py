@@ -767,12 +767,17 @@ else:
     per_checkin = []
     excluded_total = 0
     skipped_cars = 0
+    _res_by = {x["checkin"]: x for x in data}
     for f in rev_files:
         rev_raw = json.loads(f.read_text())
         if not review_done(rev_raw):
             skipped_cars += 1
             continue                          # nur abgeschlossene Autos
-        dmg = review_damages(rev_raw)
+        _r = _res_by.get(f.stem)
+        _auto = ((repaired_ids(plate_key(_r["plate"]))
+                  | late_ids(plate_key(_r["plate"]), f.stem)) if _r else set())
+        dmg = {k: v for k, v in review_damages(rev_raw).items()
+               if not all(i in _auto for i in k.split("+"))}
         excluded_total += sum(1 for v in dmg.values() if v["verdict"] == "excluded")
         rev = {k: v for k, v in dmg.items() if v["verdict"] != "excluded"}
         n = len(rev)
@@ -818,11 +823,11 @@ else:
 
     st.dataframe(pd.DataFrame(per_checkin), use_container_width=True, hide_index=True)
 
-    # ── 3 · Aufschlüsselung nach Größe & Schwere ────────────────────────────
-    st.header("3 · Gefunden nach Größe & Schwere")
-    st.caption("Basis: alle Autos mit komplettem AI-Scan. Wo dein Review vorliegt, "
-               "zählt das menschliche Urteil, sonst der AI-Match. "
-               "🚫-ausgeschlossene Schäden zählen nicht.")
+    # ── 3 · Detection nach Größe & Schwere (validiert) ──────────────────────
+    st.header("3 · Detection nach Größe & Schwere (validiert)")
+    st.caption("Basis: nur ✔️-abgeschlossene Autos und ausschließlich dein "
+               "menschliches Urteil. Ausgeschlossene Schäden (🚫 manuell, "
+               "🔧 repariert, ⏰ zu spät erfasst) zählen nicht.")
 
     SIZE_ORDER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll",
                   "> 4 Zoll", "komplett", "ohne Angabe"]
@@ -862,52 +867,77 @@ else:
             return "komplett"
         return "ohne Angabe"
 
-    size_stat: dict[str, list[int]] = {}
-    depth_stat: dict[str, list[int]] = {}
+    size_stat: dict[str, tuple[int, int]] = {}
+    depth_stat: dict[str, tuple[int, int]] = {}
+    cell_stat: dict[tuple[str, str], tuple[int, int]] = {}
     basis_cars = basis_damages = 0
     for r in data:
-        if not ai_scan_done(r):
+        rev_all = load_review(r["checkin"])
+        if not review_done(rev_all):
             continue
         basis_cars += 1
-        rev = load_review(r["checkin"])
+        auto = (repaired_ids(plate_key(r["plate"]))
+                | late_ids(plate_key(r["plate"]), r["checkin"]))
         truths_r = {str(t["damage_id"]): t for t in r["truths"]}
-        rep = repaired_ids(plate_key(r["plate"])) | late_ids(plate_key(r["plate"]), r["checkin"])
-        for cp in (r.get("physical") or {}).get("cluster_pairs") or []:
-            gt_key = "+".join(sorted(cp["damage_ids"]))
-            rv = rev.get(gt_key)
-            if rv and rv.get("verdict") == "excluded":
+        for gt_key, v in review_damages(rev_all).items():
+            ids = gt_key.split("+")
+            if all(d in auto for d in ids):
                 continue
-            if all(d in rep for d in cp["damage_ids"]):
-                continue   # repariert oder erst nach den Fotos erfasst
-            if rv:
-                found = bool(rv.get("human"))
-            else:
-                found = cp.get("via") == "ai" and bool(cp.get("finding_clusters"))
-            sev = (truths_r.get(cp["damage_ids"][0]) or {}).get("severity")
+            if v.get("verdict") == "excluded":
+                continue
+            found = bool(v.get("human"))
+            sev = (truths_r.get(ids[0]) or {}).get("severity")
+            sb, db_ = size_bucket(sev), depth_bucket(sev)
             basis_damages += 1
-            for bucket, stat in ((size_bucket(sev), size_stat),
-                                 (depth_bucket(sev), depth_stat)):
-                g, t = stat.get(bucket, (0, 0))
-                stat[bucket] = [g + int(found), t + 1]
+            g, t_ = size_stat.get(sb, (0, 0)); size_stat[sb] = (g + found, t_ + 1)
+            g, t_ = depth_stat.get(db_, (0, 0)); depth_stat[db_] = (g + found, t_ + 1)
+            g, t_ = cell_stat.get((sb, db_), (0, 0)); cell_stat[(sb, db_)] = (g + found, t_ + 1)
 
-    st.caption(f"{basis_damages} physische DB-Schäden aus {basis_cars} Autos")
+    st.caption(f"{basis_damages} validierte Schäden aus {basis_cars} Autos")
 
     def bucket_df(stat: dict, order: list[str], label: str) -> pd.DataFrame:
-        rows = [{label: b, "Gefunden": stat[b][0], "Gesamt": stat[b][1],
-                 "Recall": stat[b][0] / stat[b][1]}
-                for b in order if b in stat]
-        return pd.DataFrame(rows)
+        return pd.DataFrame([
+            {label: b, "Gefunden": stat[b][0], "Nicht gefunden": stat[b][1] - stat[b][0],
+             "Gesamt": stat[b][1], "Recall": stat[b][0] / stat[b][1]}
+            for b in order if b in stat])
 
     col_s, col_d = st.columns(2)
     with col_s:
         st.subheader("Nach Größe")
-        dfs = bucket_df(size_stat, SIZE_ORDER, "Größe")
-        st.dataframe(dfs.style.format({"Recall": "{:.0%}"})
+        st.dataframe(bucket_df(size_stat, SIZE_ORDER, "Größe")
+                     .style.format({"Recall": "{:.0%}"})
                      .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
     with col_d:
         st.subheader("Nach Schwere / Tiefe")
-        dfd = bucket_df(depth_stat, DEPTH_ORDER, "Schwere")
-        st.dataframe(dfd.style.format({"Recall": "{:.0%}"})
+        st.dataframe(bucket_df(depth_stat, DEPTH_ORDER, "Schwere")
+                     .style.format({"Recall": "{:.0%}"})
                      .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
+
+    # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
+    st.subheader("Matrix: Größe × Schwere")
+    rows = [b for b in SIZE_ORDER if any(k[0] == b for k in cell_stat)]
+    cols = [b for b in DEPTH_ORDER if any(k[1] == b for k in cell_stat)]
+    text = pd.DataFrame("–", index=rows, columns=cols)
+    recall = pd.DataFrame(float("nan"), index=rows, columns=cols)
+    for (sb, db_), (g, t_) in cell_stat.items():
+        text.loc[sb, db_] = f"{g}/{t_} ({g / t_:.0%})"
+        recall.loc[sb, db_] = g / t_
+    import matplotlib
+    _cmap = matplotlib.colormaps["RdYlGn"]
+
+    def _bg(col: pd.Series) -> list[str]:
+        out = []
+        for i in col.index:
+            v = recall.loc[i, col.name]
+            if pd.isna(v):
+                out.append("color: #bbb")
+            else:
+                r_, g_, b_, _ = _cmap(v)
+                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
+                           f"{int(b_ * 255)},0.55)")
+        return out
+
+    st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
+    st.caption("Zeilen = Größe, Spalten = Schwere/Tiefe · Zelle: gefunden/gesamt (Recall)")
