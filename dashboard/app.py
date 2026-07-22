@@ -754,77 +754,15 @@ elif mode.startswith("🔍"):
 # ════════════════════════════════════════════════════════════════════════════
 else:
     st.title("📈 Metriken")
-    st.caption("Zwei getrennte Messgrößen — beide auf Basis deiner Reviews (Gold-Standard).")
+    st.caption("Detection-Analyse auf Basis deiner Reviews (Gold-Standard). "
+               "Die Live-Zähler zu FocalX/AI stehen oben im Review-Modus.")
     rev_files = sorted(REVIEWS.glob("*.json")) if REVIEWS.exists() else []
     if not rev_files:
         st.info("Noch keine Reviews — erst im Review-Modus Schäden bestätigen/mappen.")
         st.stop()
 
-    total = confirmed = confirmed_empty = corrected = rejected = human_added = 0
-    manual_only = 0
-    ai_total = 0                       # nur Reviews, bei denen die AI mitspielte
-    gt_matched = 0
-    per_checkin = []
-    excluded_total = 0
-    skipped_cars = 0
-    _res_by = {x["checkin"]: x for x in data}
-    for f in rev_files:
-        rev_raw = json.loads(f.read_text())
-        if not review_done(rev_raw):
-            skipped_cars += 1
-            continue                          # nur abgeschlossene Autos
-        _r = _res_by.get(f.stem)
-        _auto = ((repaired_ids(plate_key(_r["plate"]))
-                  | late_ids(plate_key(_r["plate"]), f.stem)) if _r else set())
-        dmg = {k: v for k, v in review_damages(rev_raw).items()
-               if not all(i in _auto for i in k.split("+"))}
-        excluded_total += sum(1 for v in dmg.values() if v["verdict"] == "excluded")
-        rev = {k: v for k, v in dmg.items() if v["verdict"] != "excluded"}
-        n = len(rev)
-        c_ok = sum(1 for v in rev.values() if v["verdict"] == "confirmed")
-        c_ok_e = sum(1 for v in rev.values() if v["verdict"] == "confirmed_empty")
-        c_corr = sum(1 for v in rev.values() if v["verdict"] == "corrected")
-        c_rej = sum(1 for v in rev.values() if v["verdict"] == "rejected")
-        c_add = sum(1 for v in rev.values() if v["verdict"] == "human_added")
-        c_man = sum(1 for v in rev.values() if v["verdict"] == "manual_only")
-        c_match = sum(1 for v in rev.values() if v["human"])
-        total += n; confirmed += c_ok; confirmed_empty += c_ok_e
-        corrected += c_corr; rejected += c_rej; human_added += c_add
-        manual_only += c_man
-        ai_total += n - c_man
-        gt_matched += c_match
-        per_checkin.append({
-            "Check-in": f.stem, "Reviewt": n,
-            "AI korrekt": c_ok + c_ok_e, "Korrigiert": c_corr + c_rej + c_add,
-            "Nur manuell (AI lief nicht)": c_man,
-            "FocalX-Treffer (validiert)": c_match,
-        })
-
-    st.caption(f"Basis: nur Autos mit ✔️-Abschluss-Haken"
-               + (f" — {skipped_cars} Auto(s) mit Reviews, aber ohne Haken, zählen noch nicht." if skipped_cars else "."))
-    st.header("1 · FocalX-Detection (validiert)")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Reviewte DB-Schäden", total)
-    c2.metric("Von FocalX gefunden (validiert)", gt_matched)
-    c3.metric("Validierter Recall", f"{gt_matched / total:.0%}" if total else "–")
-    c4.metric("🚫 Ausgeschlossen", excluded_total,
-              help="Vom Reviewer aus der Statistik genommen (mit Grund geloggt)")
-
-    st.header("2 · AI-Mapping-Qualität")
-    st.caption(f"Basis: {ai_total} Reviews mit AI-Vorschlag "
-               f"({manual_only} rein manuelle Mappings auf ungemappten Autos zählen hier nicht).")
-    ai_ok = confirmed + confirmed_empty
-    manual = corrected + rejected + human_added
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("AI korrekt", ai_ok, help="AI-Vorschlag exakt bestätigt (inkl. korrekt 'kein Match')")
-    c2.metric("Manuell nötig", manual, help="korrigiert / abgelehnt / vom Menschen ergänzt")
-    c3.metric("AI-Genauigkeit", f"{ai_ok / ai_total:.0%}" if ai_total else "–")
-    c4.metric("Aufschlüsselung", f"✏️{corrected} ✗{rejected} ➕{human_added}")
-
-    st.dataframe(pd.DataFrame(per_checkin), use_container_width=True, hide_index=True)
-
-    # ── 3 · Detection nach Größe & Schwere (validiert) ──────────────────────
-    st.header("3 · Detection nach Größe & Schwere (validiert)")
+    # ── Detection nach Größe & Schwere (validiert) ──────────────────────────
+    st.header("Detection nach Größe & Schwere (validiert)")
     st.caption("Basis: nur ✔️-abgeschlossene Autos und ausschließlich dein "
                "menschliches Urteil. Ausgeschlossene Schäden (🚫 manuell, "
                "🔧 repariert, ⏰ zu spät erfasst) zählen nicht.")
@@ -959,8 +897,8 @@ else:
                      .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
                                           vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
-        st.caption("kum. wächst mit der Schwere: „Kratzer bis Grundierung" = alle "
-                   "Kratzer, „Delle mit Lackschaden" = alle Dellen.")
+        st.caption("kum. wächst mit der Schwere: Kratzer bis Grundierung = alle "
+                   "Kratzer, Delle mit Lackschaden = alle Dellen.")
 
     # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
@@ -1004,4 +942,4 @@ else:
     st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
     st.caption("Zelle = alle Schäden mit **Größe ≥ Zeile**, Schwere-Spalte kumuliert "
                "**inkl. leichterer Stufen** (Leitern getrennt: Kratzer bzw. Delle) · "
-               "gefunden/gesamt (Recall). Spalten „(alle)" = ganze Leiter.")
+               "gefunden/gesamt (Recall). Spalten mit (alle) = ganze Leiter.")
