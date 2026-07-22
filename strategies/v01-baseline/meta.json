@@ -1,0 +1,12 @@
+{
+  "name": "v01-baseline",
+  "title": "v01 — Baseline",
+  "description": "Original-Judge des ersten kompletten Laufs: Gemini 3.1 Pro, Adjudicator-Prompt mit Per-Kandidat-Verdicts (Duplicate / Not Duplicate / Insufficient Evidence), Temperatur 0, bis 4 GT-Fotos und 2 Close-ups je Kandidat. Ergebnisse eingefroren als ai_proposal_at_review im Gold-Standard — kein eigener Lauf nötig.",
+  "baseline": true,
+  "model": "vertex_ai/gemini-3.1-pro",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "stored"
+}

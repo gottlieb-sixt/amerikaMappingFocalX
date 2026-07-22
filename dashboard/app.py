@@ -872,11 +872,63 @@ elif mode.startswith("🔍"):
 
 # ════════════════════════════════════════════════════════════════════════════
 if mode.startswith("🧠"):
+    from eval import strategy as strat
+
     st.title("🧠 AI-Mapping-Qualität")
-    st.caption("Wie gut ordnet der multimodale KI-Judge die FocalX-Funde den "
-               "DB-Schäden zu — gemessen an deinem manuellen Gold-Standard. "
-               "Basis: ✔️-abgeschlossene Autos, ohne Ausschlüsse (🚫/🔧/⏰), "
-               "nur Schäden, bei denen die KI einen Vorschlag machen konnte.")
+
+    strategies = strat.load_strategies()
+    bench = strat.benchmark_records()
+
+    scored: dict[str, dict] = {}
+    for _name, _meta in strategies.items():
+        _props = strat.proposals_for(_name, _meta)
+        if _props:
+            scored[_name] = strat.score(bench, _props)
+
+    st.caption(f"Benchmark: **{len(bench)} menschlich validierte Urteile** aus dem "
+               "Gold-Standard (✔️-Autos, ohne 🚫/🔧/⏰-Ausschlüsse). Jede Strategie "
+               "wird auf exakt denselben Urteilen gemessen — Cluster und Kandidaten "
+               "sind aus v01 eingefroren, nur der Judge (Prompt / Modell / Parameter) "
+               "variiert. Neue Strategie: Ordner unter `strategies/` anlegen, dann "
+               "`python3 -u scripts/run_strategy.py <name>` starten.")
+
+    if len(scored) > 1:
+        st.subheader("Strategie-Vergleich")
+        comp = []
+        for _name, s_ in scored.items():
+            c_ = s_["counts"]
+            comp.append({
+                "Strategie": strategies[_name].get("title", _name),
+                "Abdeckung": f"{s_['covered']}/{s_['total']}",
+                "✅ exakt": c_["confirmed"],
+                "✏️ falsch gewählt": c_["corrected"],
+                "➕ übersehen": c_["human_added"],
+                "✅ korrekt leer": c_["confirmed_empty"],
+                "✗ fälschlich": c_["rejected"],
+                "Präzision": s_["precision"],
+                "Genauigkeit": s_["accuracy"],
+            })
+        st.dataframe(pd.DataFrame(comp)
+                     .style.format({"Präzision": "{:.0%}", "Genauigkeit": "{:.0%}"},
+                                   na_rep="–")
+                     .background_gradient(subset=["Genauigkeit"], cmap="RdYlGn",
+                                          vmin=0, vmax=1),
+                     use_container_width=True, hide_index=True)
+
+    sel_strat = st.selectbox(
+        "Strategie", list(scored),
+        format_func=lambda n: strategies.get(n, {}).get("title", n))
+    if sel_strat not in scored:
+        st.info("Noch kein Strategie-Lauf vorhanden.")
+        st.stop()
+    sel_meta, s = strategies[sel_strat], scored[sel_strat]
+    if sel_meta.get("description"):
+        st.caption(sel_meta["description"])
+    if s["missing"]:
+        st.warning(f"Lauf unvollständig: erst {s['covered']}/{s['total']} "
+                   "Benchmark-Urteile abgedeckt — alle Kennzahlen beziehen sich nur "
+                   "auf die abgedeckten. Weiter mit "
+                   f"`python3 -u scripts/run_strategy.py {sel_strat}`.")
 
     def _size_b(sev: str | None) -> str:
         t = (sev or "").lower()
@@ -887,55 +939,31 @@ if mode.startswith("🧠"):
                 return b
         return "ohne Angabe"
 
-    OUTCOMES = [
-        ("✅ Match korrekt bestätigt", "confirmed"),
-        ("✅ korrekt: kein Match", "confirmed_empty"),
-        ("✏️ falsches Finding gewählt", "corrected"),
-        ("✗ fälschlich gemappt (Mensch: kein Match)", "rejected"),
-        ("➕ Match übersehen (Mensch fand einen)", "human_added"),
-    ]
-    counts = {v: 0 for _, v in OUTCOMES}
-    per_car = []
+    counts = s["counts"]
     acc: dict[tuple[str, str], list[int]] = {}   # (Größe, gate/other) -> [ok, tot]
-    for r in data:
-        rev_all = load_review(r["checkin"])
-        if not review_done(rev_all):
-            continue
-        auto = (repaired_ids(plate_key(r["plate"]))
-                | late_ids(plate_key(r["plate"]), r["checkin"]))
-        srcs = source_map(plate_key(r["plate"]))
-        truths_r = {str(t["damage_id"]): t for t in r["truths"]}
-        row = {v: 0 for _, v in OUTCOMES}
-        for gt_key, v in review_damages(rev_all).items():
-            ids = gt_key.split("+")
-            if all(d in auto for d in ids) or v.get("verdict") == "excluded":
-                continue
-            verdict = v.get("verdict")
-            if verdict not in counts:      # manual_only etc.
-                continue
-            counts[verdict] += 1
-            row[verdict] += 1
-            ok = verdict in ("confirmed", "confirmed_empty")
-            sb = _size_b((truths_r.get(ids[0]) or {}).get("severity"))
-            gk = "gate" if srcs.get(ids[0]) == 10 else "other"
-            a = acc.setdefault((sb, gk), [0, 0])
-            a[0] += ok; a[1] += 1
+    _rows_car: dict[str, dict] = {}
+    for rec in s["records"]:
+        ok = rec["verdict"] in ("confirmed", "confirmed_empty")
+        sb = _size_b(rec.get("severity"))
+        srcs = source_map(plate_key(rec["plate"]))
+        gk = "gate" if srcs.get(rec["damage_ids"][0]) == 10 else "other"
+        a = acc.setdefault((sb, gk), [0, 0])
+        a[0] += ok; a[1] += 1
+        row = _rows_car.setdefault(rec["checkin"], {v: 0 for v in strat.VERDICTS})
+        row[rec["verdict"]] += 1
+    per_car = []
+    for _ck, row in sorted(_rows_car.items()):
         n = sum(row.values())
-        if n:
-            okc = row["confirmed"] + row["confirmed_empty"]
-            per_car.append({
-                "Check-in": r["checkin"], "mit KI-Vorschlag": n,
-                "korrekt": okc, "✏️ korrigiert": row["corrected"],
-                "✗ fälschlich": row["rejected"], "➕ übersehen": row["human_added"],
-                "Genauigkeit": okc / n,
-            })
+        okc = row["confirmed"] + row["confirmed_empty"]
+        per_car.append({
+            "Check-in": _ck, "Urteile": n, "korrekt": okc,
+            "✏️ korrigiert": row["corrected"], "✗ fälschlich": row["rejected"],
+            "➕ übersehen": row["human_added"], "Genauigkeit": okc / n,
+        })
 
-    tot = sum(counts.values())
+    tot = s["covered"]
     ok_total = counts["confirmed"] + counts["confirmed_empty"]
-    ai_match = counts["confirmed"] + counts["corrected"] + counts["rejected"]
-    mappable = counts["confirmed"] + counts["corrected"] + counts["human_added"]
-    nonmap = counts["confirmed_empty"] + counts["rejected"]
-    prec = counts["confirmed"] / ai_match if ai_match else None
+    mappable, nonmap, prec = s["mappable"], s["nonmap"], s["precision"]
 
     st.subheader("Wie gehen die KI-Urteile aus?")
     import altair as alt
@@ -943,6 +971,9 @@ if mode.startswith("🧠"):
     def _stack(title: str, segs: list[tuple[str, int, str]],
                scale_max: int) -> None:
         total = sum(n for _, n, _c in segs)
+        if not total:
+            st.markdown(f"**{title}** — noch keine Urteile")
+            return
         df = pd.DataFrame([{"Ausgang": f"{lbl} ({n})", "n": n, "farbe": col, "o": i,
                             "pct": f"{n / total:.0%}"}
                            for i, (lbl, n, col) in enumerate(segs) if n > 0])
@@ -970,7 +1001,7 @@ if mode.startswith("🧠"):
         st.altair_chart((bars + labels).properties(height=44),
                         use_container_width=True)
 
-    _scale_max = max(mappable, nonmap)
+    _scale_max = max(mappable, nonmap, 1)
     _stack(f"Match existiert ({mappable}) — kann die KI ihn finden?", [
         ("exakt richtig gemappt", counts["confirmed"], "#2e9e5b"),
         ("falsches Finding gewählt", counts["corrected"], "#e8c14d"),
@@ -980,10 +1011,11 @@ if mode.startswith("🧠"):
         ("korrekt: kein Match", counts["confirmed_empty"], "#8fd0a0"),
         ("fälschlich gemappt", counts["rejected"], "#d0433b"),
     ], _scale_max)
-    st.caption(f"Präzision der KI-Matches: **{prec:.0%}** (wenn die KI mappte, war es "
-               f"so oft exakt der richtige Fund) · Gesamt-Genauigkeit über alle {tot} "
-               f"Schäden: {ok_total / tot:.0%}. Lesart: Die KI irrt fast nur in eine "
-               "Richtung — sie übersieht Matches (zu streng), statt falsche zu erfinden.")
+    _p = f"{prec:.0%}" if prec is not None else "–"
+    _a = f"{ok_total / tot:.0%}" if tot else "–"
+    st.caption(f"Präzision der KI-Matches: **{_p}** (wenn die KI mappte, war es so "
+               f"oft exakt der richtige Fund) · Gesamt-Genauigkeit über alle {tot} "
+               f"Urteile: **{_a}**.")
 
     st.subheader("Genauigkeit nach Größe × Erfassungsquelle (kumuliert)")
     import matplotlib as _mpl2
@@ -1019,9 +1051,28 @@ if mode.startswith("🧠"):
     st.dataframe(atext.style.apply(_abg, axis=0), use_container_width=True)
     st.caption("Zeilen kumuliert (≥ Größe) · Zelle: exakt korrekte KI-Urteile / gesamt.")
 
-    with st.expander("Pro Auto (Detail)"):
-        st.dataframe(pd.DataFrame(per_car)
-                     .style.format({"Genauigkeit": "{:.0%}"})
-                     .background_gradient(subset=["Genauigkeit"], cmap="RdYlGn",
-                                          vmin=0, vmax=1),
-                     use_container_width=True, hide_index=True)
+    if per_car:
+        with st.expander("Pro Auto (Detail)"):
+            st.dataframe(pd.DataFrame(per_car)
+                         .style.format({"Genauigkeit": "{:.0%}"})
+                         .background_gradient(subset=["Genauigkeit"], cmap="RdYlGn",
+                                              vmin=0, vmax=1),
+                         use_container_width=True, hide_index=True)
+
+    _LBL = {"corrected": "✏️ falsches Finding gewählt",
+            "human_added": "➕ Match übersehen",
+            "rejected": "✗ fälschlich gemappt"}
+    _errs = [x for x in s["records"] if x["verdict"] in _LBL]
+    with st.expander(f"Fehler im Detail ({len(_errs)}) — Futter fürs Prompt-Tuning"):
+        if _errs:
+            st.dataframe(pd.DataFrame([{
+                "Check-in": x["checkin"],
+                "Schaden": "#" + "+#".join(x["damage_ids"]),
+                "Bauteil": x.get("part"), "Typ": x.get("type"),
+                "Größe": _size_b(x.get("severity")),
+                "Ausgang": _LBL[x["verdict"]],
+                "KI wählte": ", ".join(x["proposal_keys"]) or "—",
+                "Gold (Mensch)": ", ".join(x["gold_keys"]) or "—",
+            } for x in _errs]), use_container_width=True, hide_index=True)
+        else:
+            st.write("Keine Fehler — perfekter Lauf.")

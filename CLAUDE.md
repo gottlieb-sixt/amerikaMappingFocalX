@@ -12,7 +12,9 @@ Android-Projekt `~/Documents/Code/VehicleCapture`.
 
 Zwei getrennte Metriken, niemals vermischen:
 1. **FocalX-Detection-Qualität** — validiert durch menschliches Review (Stand: 54 % Recall über 20 Autos)
-2. **AI-Mapping-Genauigkeit** — KI-Vorschlag vs. menschliche Wahl (Stand: 71 %; Fehler fast nur falsch-negativ)
+2. **AI-Mapping-Genauigkeit** — KI-Vorschlag vs. menschliche Wahl (v01: 71 %;
+   Fehler fast nur falsch-negativ). Wird aktuell über **Strategien** getunt —
+   siehe Abschnitt "Aktueller Fokus" unten.
 
 **Die 📊-Ergebnisseite im Dashboard ist final und rein menschlich validiert.**
 Alle 127 Schäden der 20 abgeschlossenen Autos wurden komplett manuell gemappt —
@@ -26,13 +28,18 @@ bestehenden Urteile bleiben unangetastet (eingefroren in `gold/mapping_gold.json
 ```
 eval/         focalx.py (API-Client) · pipeline.py (Ablauf/Filter) · ground_truth.py
               (SHARK-Parser) · matcher.py (Heuristik, Truth) · judge.py (LLM-Client)
-              · mapping.py (Clustering + Hybrid-Judge = Kern)
+              · mapping.py (Clustering + Hybrid-Judge = Kern) · strategy.py
+              (Strategie-Framework: Benchmark + Scoring gegen Gold)
 scripts/      lynx_fetch.py · fetch_damages.py · download_*.py · remap.py (Mapping neu,
-              ohne FocalX) · sweep.py (Nachfeger für fehlgeschlagene Urteile) · export_gold.py
+              ohne FocalX) · sweep.py (Nachfeger für fehlgeschlagene Urteile)
+              · export_gold.py · run_strategy.py (Strategie-Lauf gegen Gold-Autos)
 dashboard/    app.py (Übersicht/Review/Metriken) · gallery.py (Zoom-Lightbox)
 gold/         mapping_gold.json — versionierter Gold-Standard (menschliche Urteile)
+strategies/   committete Judge-Varianten: <name>/meta.json + prompt.txt
+              (v01-baseline = eingefrorener Original-Judge, kein Lauf nötig)
 data/         GITIGNORED: raw/<datum>/<PLATE__checkin8>/ · ground_truth/ · gt_photos/
-              · results/<checkin>.json (+<checkin>/closeups/, focalx_report.json) · reviews/
+              · results/<checkin>.json (+<checkin>/closeups/, focalx_report.json)
+              · reviews/ · strategies/<name>/<checkin>.json (Strategie-Läufe)
 .env          GITIGNORED: FOCALX_PRECISE_USERNAME/PASSWORD, LLM_GW_API_KEY
 ```
 
@@ -53,7 +60,53 @@ python3 -u scripts/sweep.py
 
 # Gold-Standard nach neuen Reviews aktualisieren (nur ✔️-Autos; --all für alle)
 python3 scripts/export_gold.py
+
+# Mapping-Strategie gegen die Gold-Autos laufen lassen (s. Abschnitt unten)
+python3 -u scripts/run_strategy.py v02-name --dry-run   # erst zählen, ohne API
+python3 -u scripts/run_strategy.py v02-name             # echter Lauf (resümierbar)
 ```
+
+## Aktueller Fokus: Mapping-Strategien tunen (v02, v03, …)
+
+Das AI-Mapping (v01: 71 % Genauigkeit, Schwäche = übersehene Matches: nur 32/67
+mappbare exakt getroffen) soll durch Prompt-/Parameter-Varianten verbessert
+werden. Der Gold-Standard ist das Messlineal; jede Variante ist eine
+**Strategie** mit eigener Metrik-Ansicht im Dashboard (🧠-Seite).
+
+Feste Regeln des Frameworks (`eval/strategy.py`):
+
+- **Benchmark = 126 Urteile**, deterministisch aus `gold/mapping_gold.json`
+  abgeleitet (✔️-Autos, ohne 🚫-Ausschlüsse, ohne 🔧/⏰-Auto-Ausschlüsse, ohne
+  das eine Urteil ohne KI-Verfügbarkeit). Alle Strategien werden auf exakt
+  dieser Menge verglichen — niemals die Filter ändern.
+- **Cluster + Kandidaten sind aus v01 eingefroren** (in `data/results/*.json`).
+  Strategien variieren NUR den Judge (System-Prompt, Modell, Temperatur,
+  Bildanzahl, Kandidatenmenge). Sonst passen die `gt_key`s nicht mehr zum Gold.
+- **v01-baseline** braucht keinen Lauf — ihre Vorschläge stehen als
+  `ai_proposal_at_review` im Gold-Standard.
+- Läufe schreiben NUR nach `data/strategies/<name>/` — `data/results/`,
+  `data/reviews/` und `gold/` bleiben unangetastet.
+
+Neue Strategie anlegen:
+
+1. `strategies/<name>/` erstellen (Namensschema `v02-kurzbeschreibung`):
+   `meta.json` (title, description, model, temperature, max_tokens, gt_images,
+   cand_images, candidates: "stored"|"all") + `prompt.txt` (System-Prompt des
+   Judge; Ausgabeformat mit Per-Kandidat-Verdicts ODER `{"matches": […]}` —
+   der Parser versteht beide).
+2. `python3 -u scripts/run_strategy.py <name> --dry-run` → Anzahl Calls prüfen.
+3. `python3 -u scripts/run_strategy.py <name>` → läuft alle 126 Urteile,
+   speichert inkrementell, ist nach Abbruch/Rate-Limit resümierbar und scort
+   am Ende gegen Gold.
+4. Dashboard → 🧠 AI-Mapping: Strategie-Vergleichstabelle + Detailansicht pro
+   Strategie; der Expander "Fehler im Detail" listet jeden Fehlgriff
+   (übersehen/falsch/fälschlich) als Futter für die nächste Prompt-Iteration.
+
+Erste Tuning-Hebel (aus der v01-Fehleranalyse): der Judge ist zu streng —
+28 übersehene Matches vs. nur 1 fälschliches. Kandidaten: weniger strenge
+Confidence-Anker, "Insufficient Evidence" seltener, inklusivere Formulierung
+wie im alten judge.py-SYSTEM_PROMPT, oder `candidates: "all"` gegen zu enge
+Kandidaten-Vorauswahl.
 
 Systemweites `python3` für Skripte (stdlib-only); `.venv` nur für Dashboard +
 Playwright-Verifikation. UI-Änderungen headless mit Playwright gegen
