@@ -941,16 +941,16 @@ else:
         for ladder in _ladders:
             for i, b in enumerate(ladder):
                 g, t_ = depth_stat[b]
-                cg = sum(depth_stat[x][0] for x in ladder[i:])
-                ct = sum(depth_stat[x][1] for x in ladder[i:])
+                cg = sum(depth_stat[x][0] for x in ladder[:i + 1])
+                ct = sum(depth_stat[x][1] for x in ladder[:i + 1])
                 _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
-                              "Recall": g / t_, "ab hier (kum.)": f"{cg}/{ct}",
+                              "Recall": g / t_, "kum. (inkl. leichterer)": f"{cg}/{ct}",
                               "Recall (kum.)": cg / ct})
         for b in ("komplett", "ohne Angabe"):
             if b in depth_stat:
                 g, t_ = depth_stat[b]
                 _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
-                              "Recall": g / t_, "ab hier (kum.)": "–",
+                              "Recall": g / t_, "kum. (inkl. leichterer)": "–",
                               "Recall (kum.)": None})
         st.dataframe(pd.DataFrame(_rows)
                      .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
@@ -959,8 +959,8 @@ else:
                      .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
                                           vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
-        st.caption("kum. innerhalb der Leiter: Kratzer oberflächlich→Grundierung, "
-                   "Delle ohne→mit Lackschaden.")
+        st.caption("kum. wächst mit der Schwere: „Kratzer bis Grundierung" = alle "
+                   "Kratzer, „Delle mit Lackschaden" = alle Dellen.")
 
     # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
@@ -968,10 +968,10 @@ else:
                           "2–4 Zoll", "> 4 Zoll"]
               if any(k[0] == b for k in cell_stat)]
     _sev_cols = [
-        ("Kratzer ≥ oberflächlich", {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
-        ("Kratzer ≥ Grundierung", {"Kratzer bis Grundierung"}),
-        ("Delle ≥ ohne Lack", {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
-        ("Delle ≥ mit Lack", {"Delle mit Lackschaden"}),
+        ("Kratzer bis oberfl.", {"Kratzer oberflächlich"}),
+        ("Kratzer bis Grund. (alle)", {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
+        ("Delle bis o. Lack", {"Delle ohne Lackschaden"}),
+        ("Delle bis m. Lack (alle)", {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
     ]
     rows_lbl = [f"≥ {b}" for b in _sizes]
     text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in _sev_cols])
@@ -1002,6 +1002,6 @@ else:
         return out
 
     st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
-    st.caption("Zelle = alle Schäden mit **Größe ≥ Zeile** und **Schwere ≥ Spalte** "
-               "(Schwere-Leitern getrennt: Kratzer bzw. Delle) · gefunden/gesamt (Recall). "
-               "Oberste Zeile links = alle Kratzer bzw. Dellen gesamt.")
+    st.caption("Zelle = alle Schäden mit **Größe ≥ Zeile**, Schwere-Spalte kumuliert "
+               "**inkl. leichterer Stufen** (Leitern getrennt: Kratzer bzw. Delle) · "
+               "gefunden/gesamt (Recall). Spalten „(alle)" = ganze Leiter.")
