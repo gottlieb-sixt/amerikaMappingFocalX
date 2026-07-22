@@ -933,17 +933,39 @@ if mode.startswith("🧠"):
     tot = sum(counts.values())
     ok_total = counts["confirmed"] + counts["confirmed_empty"]
     ai_match = counts["confirmed"] + counts["corrected"] + counts["rejected"]
-    human_match = counts["confirmed"] + counts["corrected"] + counts["human_added"]
+    mappable = counts["confirmed"] + counts["corrected"] + counts["human_added"]
+    nonmap = counts["confirmed_empty"] + counts["rejected"]
     prec = counts["confirmed"] / ai_match if ai_match else None
-    rec = counts["confirmed"] / human_match if human_match else None
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Genauigkeit (exakt)", f"{ok_total / tot:.0%}" if tot else "–",
-              help="KI-Vorschlag exakt wie dein Urteil — inkl. korrektem 'kein Match'")
-    c2.metric("Präzision der KI-Matches", f"{prec:.0%}" if prec is not None else "–",
+
+    st.subheader(f"Mappbare Schäden — ein Match existiert ({mappable})")
+    st.caption("Das ist die eigentlich harte Aufgabe: Der Mensch hat einen "
+               "passenden FocalX-Fund gefunden — hat die KI ihn auch?")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Exakt richtig gemappt",
+              f"{counts['confirmed']}/{mappable}"
+              + (f" ({counts['confirmed'] / mappable:.0%})" if mappable else ""))
+    c2.metric("Irgendein Match vorgeschlagen",
+              f"{counts['confirmed'] + counts['corrected']}/{mappable}"
+              + (f" ({(counts['confirmed'] + counts['corrected']) / mappable:.0%})"
+                 if mappable else ""),
+              help="Exakt richtig + falsches Finding gewählt")
+    c3.metric("Übersehen (KI: kein Match)",
+              f"{counts['human_added']}/{mappable}"
+              + (f" ({counts['human_added'] / mappable:.0%})" if mappable else ""))
+
+    st.subheader(f"Nicht mappbare Schäden — kein Match existiert ({nonmap})")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Korrekt: kein Match",
+              f"{counts['confirmed_empty']}/{nonmap}"
+              + (f" ({counts['confirmed_empty'] / nonmap:.0%})" if nonmap else ""))
+    c2.metric("Fälschlich gemappt",
+              f"{counts['rejected']}/{nonmap}"
+              + (f" ({counts['rejected'] / nonmap:.0%})" if nonmap else ""))
+    c3.metric("Präzision der KI-Matches", f"{prec:.0%}" if prec is not None else "–",
               help="Wenn die KI einen Match vorschlug: wie oft war es exakt der richtige Fund?")
-    c3.metric("Recall der echten Matches", f"{rec:.0%}" if rec is not None else "–",
-              help="Von den Matches, die du gefunden hast: wie viele hat die KI exakt getroffen?")
-    c4.metric("Basis", f"{tot} Schäden")
+    st.caption(f"Zur Einordnung: Gesamt-Genauigkeit über alle {tot} Schäden = "
+               f"{ok_total / tot:.0%} — die Zahl ist aber von den leichten "
+               "Nein-Fällen dominiert; die Gruppen oben sind aussagekräftiger.")
 
     st.subheader("Wie gehen die KI-Urteile aus?")
     conf_rows = [{"Ausgang": lbl, "Anzahl": counts[v], "Anteil": counts[v] / tot}
