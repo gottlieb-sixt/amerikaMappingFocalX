@@ -592,3 +592,94 @@ else:
     c4.metric("Aufschlüsselung", f"✏️{corrected} ✗{rejected} ➕{human_added}")
 
     st.dataframe(pd.DataFrame(per_checkin), use_container_width=True, hide_index=True)
+
+    # ── 3 · Aufschlüsselung nach Größe & Schwere ────────────────────────────
+    st.header("3 · Gefunden nach Größe & Schwere")
+    st.caption("Basis: alle Autos mit komplettem AI-Scan. Wo dein Review vorliegt, "
+               "zählt das menschliche Urteil, sonst der AI-Match. "
+               "🚫-ausgeschlossene Schäden zählen nicht.")
+
+    SIZE_ORDER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll",
+                  "> 4 Zoll", "komplett", "ohne Angabe"]
+    DEPTH_ORDER = ["Delle ohne Lackschaden", "Delle mit Lackschaden",
+                   "Kratzer oberflächlich", "Kratzer bis Grundierung",
+                   "komplett", "ohne Angabe"]
+
+    def size_bucket(sev: str | None) -> str:
+        s = (sev or "").lower()
+        if "0.5 inch" in s:
+            return "≤ 0,5 Zoll"
+        if "up to 1 inch" in s:
+            return "≤ 1 Zoll"
+        if "> 1 inch" in s:
+            return "> 1 Zoll"
+        if "< 2 inch" in s:
+            return "< 2 Zoll"
+        if "2-4 inch" in s:
+            return "2–4 Zoll"
+        if "> 4 inch" in s:
+            return "> 4 Zoll"
+        if "complete" in s:
+            return "komplett"
+        return "ohne Angabe"
+
+    def depth_bucket(sev: str | None) -> str:
+        s = (sev or "").lower()
+        if "without paint" in s:
+            return "Delle ohne Lackschaden"
+        if "with paint" in s:
+            return "Delle mit Lackschaden"
+        if "superficial" in s:
+            return "Kratzer oberflächlich"
+        if "down to primer" in s:
+            return "Kratzer bis Grundierung"
+        if "complete" in s:
+            return "komplett"
+        return "ohne Angabe"
+
+    size_stat: dict[str, list[int]] = {}
+    depth_stat: dict[str, list[int]] = {}
+    basis_cars = basis_damages = 0
+    for r in data:
+        if not ai_scan_done(r):
+            continue
+        basis_cars += 1
+        rev = load_review(r["checkin"])
+        truths_r = {str(t["damage_id"]): t for t in r["truths"]}
+        for cp in (r.get("physical") or {}).get("cluster_pairs") or []:
+            gt_key = "+".join(sorted(cp["damage_ids"]))
+            rv = rev.get(gt_key)
+            if rv and rv.get("verdict") == "excluded":
+                continue
+            if rv:
+                found = bool(rv.get("human"))
+            else:
+                found = cp.get("via") == "ai" and bool(cp.get("finding_clusters"))
+            sev = (truths_r.get(cp["damage_ids"][0]) or {}).get("severity")
+            basis_damages += 1
+            for bucket, stat in ((size_bucket(sev), size_stat),
+                                 (depth_bucket(sev), depth_stat)):
+                g, t = stat.get(bucket, (0, 0))
+                stat[bucket] = [g + int(found), t + 1]
+
+    st.caption(f"{basis_damages} physische DB-Schäden aus {basis_cars} Autos")
+
+    def bucket_df(stat: dict, order: list[str], label: str) -> pd.DataFrame:
+        rows = [{label: b, "Gefunden": stat[b][0], "Gesamt": stat[b][1],
+                 "Recall": stat[b][0] / stat[b][1]}
+                for b in order if b in stat]
+        return pd.DataFrame(rows)
+
+    col_s, col_d = st.columns(2)
+    with col_s:
+        st.subheader("Nach Größe")
+        dfs = bucket_df(size_stat, SIZE_ORDER, "Größe")
+        st.dataframe(dfs.style.format({"Recall": "{:.0%}"})
+                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
+                     use_container_width=True, hide_index=True)
+    with col_d:
+        st.subheader("Nach Schwere / Tiefe")
+        dfd = bucket_df(depth_stat, DEPTH_ORDER, "Schwere")
+        st.dataframe(dfd.style.format({"Recall": "{:.0%}"})
+                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
+                     use_container_width=True, hide_index=True)
