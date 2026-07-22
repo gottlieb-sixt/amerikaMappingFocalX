@@ -866,40 +866,6 @@ else:
                      use_container_width=True, hide_index=True)
         st.caption("kum. = dieser Bucket **und alle größeren**: Zeile 2–4 Zoll = "
                    "Recall für alle Schäden ab 2 Zoll, oberste Zeile = alle Größen.")
-    st.subheader("Nach Schwere / Tiefe")
-    if True:
-        # Zwei Leitern, jeweils leicht → schwer; kumuliert = ab hier und schwerer
-        _ladders = [
-            [b for b in ["Kratzer oberflächlich", "Kratzer bis Grundierung"]
-             if b in depth_stat],
-            [b for b in ["Delle ohne Lackschaden", "Delle mit Lackschaden"]
-             if b in depth_stat],
-        ]
-        _rows = []
-        for ladder in _ladders:
-            for i, b in enumerate(ladder):
-                g, t_ = depth_stat[b]
-                cg = sum(depth_stat[x][0] for x in ladder[:i + 1])
-                ct = sum(depth_stat[x][1] for x in ladder[:i + 1])
-                _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
-                              "Recall": g / t_, "kum. (inkl. leichterer)": f"{cg}/{ct}",
-                              "Recall (kum.)": cg / ct})
-        for b in ("komplett", "ohne Angabe"):
-            if b in depth_stat:
-                g, t_ = depth_stat[b]
-                _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
-                              "Recall": g / t_, "kum. (inkl. leichterer)": "–",
-                              "Recall (kum.)": float("nan")})
-        st.dataframe(pd.DataFrame(_rows)
-                     .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
-                                   na_rep="–")
-                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
-                     .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
-                                          vmin=0, vmax=1)
-                     .highlight_null(props="background-color: transparent; color: #bbb;"),
-                     use_container_width=True, hide_index=True)
-        st.caption("kum. wächst mit der Schwere: Kratzer bis Grundierung = alle "
-                   "Kratzer, Delle mit Lackschaden = alle Dellen.")
 
     # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
