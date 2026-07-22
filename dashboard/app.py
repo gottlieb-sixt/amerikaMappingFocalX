@@ -848,15 +848,15 @@ else:
         _rows = []
         for i, b in enumerate(_ladder):
             g, t_ = size_stat[b]
-            cg = sum(size_stat[x][0] for x in _ladder[i:])
-            ct = sum(size_stat[x][1] for x in _ladder[i:])
+            cg = sum(size_stat[x][0] for x in _ladder[:i + 1])
+            ct = sum(size_stat[x][1] for x in _ladder[:i + 1])
             _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                          "ab hier (kum.)": f"{cg}/{ct}", "Recall (kum.)": cg / ct})
+                          "kum. (inkl. kleinerer)": f"{cg}/{ct}", "Recall (kum.)": cg / ct})
         for b in ("komplett", "ohne Angabe"):
             if b in size_stat:
                 g, t_ = size_stat[b]
                 _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                              "ab hier (kum.)": "–", "Recall (kum.)": None})
+                              "kum. (inkl. kleinerer)": "–", "Recall (kum.)": None})
         st.dataframe(pd.DataFrame(_rows)
                      .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
                                    na_rep="–")
@@ -864,8 +864,8 @@ else:
                      .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
                                           vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
-        st.caption("kum. = dieser Bucket **und alle größeren** — z. B. Zeile "
-                   "2–4 Zoll: Recall für alle Schäden ab 2 Zoll.")
+        st.caption("kum. wächst mit der Größe: Zeile 2–4 Zoll = alle Schäden "
+                   "**bis** 4 Zoll, unterste Zeile = alle Größen.")
     with col_d:
         st.subheader("Nach Schwere / Tiefe")
         # Zwei Leitern, jeweils leicht → schwer; kumuliert = ab hier und schwerer
@@ -910,20 +910,20 @@ else:
         all_sev = set().union(*[d for _, d in sev_cols])
         sizes = [b for b in _MASTER
                  if any(k[0] == b and k[1] in all_sev for k in cell_stat)]
-        rows_lbl = [f"≥ {b}" for b in sizes]
+        rows_lbl = [f"bis {b}" for b in sizes]
         text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in sev_cols])
         recall = pd.DataFrame(float("nan"), index=rows_lbl,
                               columns=[c for c, _ in sev_cols])
         for i, sb in enumerate(sizes):
-            bigger = set(sizes[i:])
+            upto = set(sizes[:i + 1])
             for cname, dset in sev_cols:
                 g = sum(v[0] for k, v in cell_stat.items()
-                        if k[0] in bigger and k[1] in dset)
+                        if k[0] in upto and k[1] in dset)
                 t_ = sum(v[1] for k, v in cell_stat.items()
-                         if k[0] in bigger and k[1] in dset)
+                         if k[0] in upto and k[1] in dset)
                 if t_:
-                    text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
-                    recall.loc[f"≥ {sb}", cname] = g / t_
+                    text.loc[f"bis {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                    recall.loc[f"bis {sb}", cname] = g / t_
 
         def _bg(col: pd.Series) -> list[str]:
             out = []
@@ -954,6 +954,6 @@ else:
             ("bis mit Lack (alle)", {"Delle ohne Lackschaden",
                                      "Delle mit Lackschaden"}),
         ])
-    st.caption("Zeilen kumuliert nach Größe (≥ Zeile, je Typ eigene Größen-Leiter), "
-               "Spalten kumuliert nach Schwere inkl. leichterer Stufen · "
-               "Zelle: gefunden/gesamt (Recall).")
+    st.caption("Beide Richtungen wachsen kumuliert: Zeilen nach Größe (inkl. "
+               "kleinerer, je Typ eigene Leiter), Spalten nach Schwere (inkl. "
+               "leichterer) · Zelle: gefunden/gesamt (Recall) · unten rechts = alles.")
