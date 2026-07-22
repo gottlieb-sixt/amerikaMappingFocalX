@@ -42,7 +42,7 @@ if not data:
     st.info("Noch keine Ergebnisse — erst `python -m eval.pipeline …` laufen lassen.")
     st.stop()
 
-MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping"]
+MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "🧠 AI-Mapping"]
 # Navigation aus der Übersicht: VOR der Radio-Instanziierung verarbeiten
 # (session_state eines gerenderten Widgets darf nicht mehr geändert werden).
 if "nav_to_review" in st.session_state:
@@ -869,3 +869,130 @@ elif mode.startswith("🔍"):
                         st.rerun()
 
 # ════════════════════════════════════════════════════════════════════════════
+
+# ════════════════════════════════════════════════════════════════════════════
+if mode.startswith("🧠"):
+    st.title("🧠 AI-Mapping-Qualität")
+    st.caption("Wie gut ordnet der multimodale KI-Judge die FocalX-Funde den "
+               "DB-Schäden zu — gemessen an deinem manuellen Gold-Standard. "
+               "Basis: ✔️-abgeschlossene Autos, ohne Ausschlüsse (🚫/🔧/⏰), "
+               "nur Schäden, bei denen die KI einen Vorschlag machen konnte.")
+
+    def _size_b(sev: str | None) -> str:
+        t = (sev or "").lower()
+        for pat, b in (("0.5 inch", "≤ 0,5 Zoll"), ("up to 1 inch", "≤ 1 Zoll"),
+                       ("> 1 inch", "> 1 Zoll"), ("< 2 inch", "< 2 Zoll"),
+                       ("2-4 inch", "2–4 Zoll"), ("> 4 inch", "> 4 Zoll")):
+            if pat in t:
+                return b
+        return "ohne Angabe"
+
+    OUTCOMES = [
+        ("✅ Match korrekt bestätigt", "confirmed"),
+        ("✅ korrekt: kein Match", "confirmed_empty"),
+        ("✏️ falsches Finding gewählt", "corrected"),
+        ("✗ fälschlich gemappt (Mensch: kein Match)", "rejected"),
+        ("➕ Match übersehen (Mensch fand einen)", "human_added"),
+    ]
+    counts = {v: 0 for _, v in OUTCOMES}
+    per_car = []
+    acc: dict[tuple[str, str], list[int]] = {}   # (Größe, gate/other) -> [ok, tot]
+    for r in data:
+        rev_all = load_review(r["checkin"])
+        if not review_done(rev_all):
+            continue
+        auto = (repaired_ids(plate_key(r["plate"]))
+                | late_ids(plate_key(r["plate"]), r["checkin"]))
+        srcs = source_map(plate_key(r["plate"]))
+        truths_r = {str(t["damage_id"]): t for t in r["truths"]}
+        row = {v: 0 for _, v in OUTCOMES}
+        for gt_key, v in review_damages(rev_all).items():
+            ids = gt_key.split("+")
+            if all(d in auto for d in ids) or v.get("verdict") == "excluded":
+                continue
+            verdict = v.get("verdict")
+            if verdict not in counts:      # manual_only etc.
+                continue
+            counts[verdict] += 1
+            row[verdict] += 1
+            ok = verdict in ("confirmed", "confirmed_empty")
+            sb = _size_b((truths_r.get(ids[0]) or {}).get("severity"))
+            gk = "gate" if srcs.get(ids[0]) == 10 else "other"
+            a = acc.setdefault((sb, gk), [0, 0])
+            a[0] += ok; a[1] += 1
+        n = sum(row.values())
+        if n:
+            okc = row["confirmed"] + row["confirmed_empty"]
+            per_car.append({
+                "Check-in": r["checkin"], "mit KI-Vorschlag": n,
+                "korrekt": okc, "✏️ korrigiert": row["corrected"],
+                "✗ fälschlich": row["rejected"], "➕ übersehen": row["human_added"],
+                "Genauigkeit": okc / n,
+            })
+
+    tot = sum(counts.values())
+    ok_total = counts["confirmed"] + counts["confirmed_empty"]
+    ai_match = counts["confirmed"] + counts["corrected"] + counts["rejected"]
+    human_match = counts["confirmed"] + counts["corrected"] + counts["human_added"]
+    prec = counts["confirmed"] / ai_match if ai_match else None
+    rec = counts["confirmed"] / human_match if human_match else None
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Genauigkeit (exakt)", f"{ok_total / tot:.0%}" if tot else "–",
+              help="KI-Vorschlag exakt wie dein Urteil — inkl. korrektem 'kein Match'")
+    c2.metric("Präzision der KI-Matches", f"{prec:.0%}" if prec is not None else "–",
+              help="Wenn die KI einen Match vorschlug: wie oft war es exakt der richtige Fund?")
+    c3.metric("Recall der echten Matches", f"{rec:.0%}" if rec is not None else "–",
+              help="Von den Matches, die du gefunden hast: wie viele hat die KI exakt getroffen?")
+    c4.metric("Basis", f"{tot} Schäden")
+
+    st.subheader("Wie gehen die KI-Urteile aus?")
+    conf_rows = [{"Ausgang": lbl, "Anzahl": counts[v], "Anteil": counts[v] / tot}
+                 for lbl, v in OUTCOMES if tot]
+    st.dataframe(pd.DataFrame(conf_rows)
+                 .style.format({"Anteil": "{:.0%}"})
+                 .bar(subset=["Anzahl"], color="#a9cce3"),
+                 use_container_width=True, hide_index=True)
+    st.caption("Lesart: Die KI irrt fast nur in eine Richtung — sie übersieht Matches "
+               "(zu streng), statt falsche zu erfinden.")
+
+    st.subheader("Genauigkeit nach Größe × Erfassungsquelle (kumuliert)")
+    import matplotlib as _mpl2
+    _cm2 = _mpl2.colormaps["RdYlGn"]
+    _ML = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
+    _gs = [b for b in _ML if any(k[0] == b for k in acc)]
+    _cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"}),
+             ("gesamt", {"gate", "other"})]
+    atext = pd.DataFrame("–", index=[f"≥ {b}" for b in _gs],
+                         columns=[c for c, _ in _cols])
+    arec = pd.DataFrame(float("nan"), index=[f"≥ {b}" for b in _gs],
+                        columns=[c for c, _ in _cols])
+    for i, sb in enumerate(_gs):
+        bigger = set(_gs[i:])
+        for cname, gset in _cols:
+            g = sum(v[0] for k, v in acc.items() if k[0] in bigger and k[1] in gset)
+            t_ = sum(v[1] for k, v in acc.items() if k[0] in bigger and k[1] in gset)
+            if t_:
+                atext.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                arec.loc[f"≥ {sb}", cname] = g / t_
+
+    def _abg(col: pd.Series) -> list[str]:
+        out = []
+        for i in col.index:
+            v = arec.loc[i, col.name]
+            if pd.isna(v):
+                out.append("color: #bbb")
+            else:
+                r_, g_, b_, _a = _cm2(v)
+                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
+                           f"{int(b_ * 255)},0.55)")
+        return out
+
+    st.dataframe(atext.style.apply(_abg, axis=0), use_container_width=True)
+    st.caption("Zeilen kumuliert (≥ Größe) · Zelle: exakt korrekte KI-Urteile / gesamt.")
+
+    st.subheader("Pro Auto")
+    st.dataframe(pd.DataFrame(per_car)
+                 .style.format({"Genauigkeit": "{:.0%}"})
+                 .background_gradient(subset=["Genauigkeit"], cmap="RdYlGn",
+                                      vmin=0, vmax=1),
+                 use_container_width=True, hide_index=True)
