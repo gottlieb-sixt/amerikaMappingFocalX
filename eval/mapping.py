@@ -46,43 +46,61 @@ Note about the reference photos: they come from different sources —
 
 
 def _loads_lenient(raw: str):
-    """json.loads mit Reparatur: Gemini hängt gelegentlich ein '}' zu viel an
-    oder lässt schließende Klammern weg — der Inhalt selbst ist vollständig.
-    1) erstes ausbalanciertes {...} extrahieren (schneidet Anhängsel ab),
-    2) bei abgeschnittenem Ende offene Klammern in richtiger Reihenfolge schließen."""
+    """json.loads mit Reparatur für Gemini-Macken: Fließtext vor dem JSON,
+    ein '}' zu viel am Ende, fehlende schließende Klammern. Probiert jede
+    '{'-Position als Objektstart durch — erst balanciert, dann mit Auffüllen."""
     try:
         return json.loads(raw)
     except Exception:
         pass
-    start = raw.find("{")
-    if start < 0:
+    starts = [i for i, ch in enumerate(raw) if ch == "{"][:32]
+    if not starts:
         raise ValueError("kein JSON-Objekt in der Antwort")
-    stack: list[str] = []
-    in_str = esc = False
-    for i in range(start, len(raw)):
-        ch = raw[i]
-        if esc:
-            esc = False
-            continue
-        if in_str:
-            if ch == "\\":
-                esc = True
-            elif ch == '"':
-                in_str = False
-            continue
-        if ch == '"':
-            in_str = True
-        elif ch in "{[":
-            stack.append("}" if ch == "{" else "]")
-        elif ch in "}]":
-            if stack:
-                stack.pop()
-            if not stack:
-                return json.loads(raw[start:i + 1])
-    tail = raw[start:]
-    if in_str:
-        tail += '"'
-    return json.loads(tail + "".join(reversed(stack)))
+
+    def scan(start: int):
+        """(Segment bei Balance | None, offener Klammer-Stack, in_str)"""
+        stack: list[str] = []
+        in_str = esc = False
+        for i in range(start, len(raw)):
+            ch = raw[i]
+            if esc:
+                esc = False
+                continue
+            if in_str:
+                if ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch in "{[":
+                stack.append("}" if ch == "{" else "]")
+            elif ch in "}]":
+                if stack:
+                    stack.pop()
+                if not stack:
+                    return raw[start:i + 1], stack, in_str
+        return None, stack, in_str
+
+    for start in starts:                      # 1) balanciertes Objekt suchen
+        seg, _, _ = scan(start)
+        if seg is not None:
+            try:
+                return json.loads(seg)
+            except Exception:
+                continue
+    for start in starts:                      # 2) abgeschnittenes Ende auffüllen
+        seg, stack, in_str = scan(start)
+        if seg is None:
+            tail = raw[start:]
+            if in_str:
+                tail += '"'
+            try:
+                return json.loads(tail + "".join(reversed(stack)))
+            except Exception:
+                continue
+    raise ValueError("JSON nicht reparierbar")
 
 
 def _ai_json(llm_key: str, system: str, content: list[dict]) -> dict | None:
@@ -103,8 +121,8 @@ def _ai_json(llm_key: str, system: str, content: list[dict]) -> dict | None:
     try:
         obj = _loads_lenient(raw)
     except Exception:
-        print(f"    [mapping] JSON-Parse-Fehler, Antwort-Ende: …{raw[-160:]!r}",
-              file=sys.stderr)
+        print(f"    [mapping] JSON-Parse-Fehler, Anfang: {raw[:80]!r} "
+              f"Ende: …{raw[-120:]!r}", file=sys.stderr)
         return None
     if isinstance(obj, list):
         obj = next((v for v in obj if isinstance(v, dict)), {})
