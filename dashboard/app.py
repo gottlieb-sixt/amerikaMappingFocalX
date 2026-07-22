@@ -968,12 +968,45 @@ if mode.startswith("🧠"):
                "Nein-Fällen dominiert; die Gruppen oben sind aussagekräftiger.")
 
     st.subheader("Wie gehen die KI-Urteile aus?")
-    conf_rows = [{"Ausgang": lbl, "Anzahl": counts[v], "Anteil": counts[v] / tot}
-                 for lbl, v in OUTCOMES if tot]
-    st.dataframe(pd.DataFrame(conf_rows)
-                 .style.format({"Anteil": "{:.0%}"})
-                 .bar(subset=["Anzahl"], color="#a9cce3"),
-                 use_container_width=True, hide_index=True)
+    import altair as alt
+
+    def _stack(title: str, segs: list[tuple[str, int, str]]) -> None:
+        df = pd.DataFrame([{"Ausgang": f"{lbl} ({n})", "n": n, "farbe": col, "o": i}
+                           for i, (lbl, n, col) in enumerate(segs) if n > 0])
+        total = int(df["n"].sum())
+        bars = alt.Chart(df).mark_bar(height=34, cornerRadius=3).encode(
+            x=alt.X("n:Q", title=None, axis=None,
+                    scale=alt.Scale(domain=[0, total])),
+            color=alt.Color("Ausgang:N",
+                            sort=alt.SortField("o"),
+                            scale=alt.Scale(domain=list(df["Ausgang"]),
+                                            range=list(df["farbe"])),
+                            legend=alt.Legend(orient="right", title=None,
+                                              labelFontSize=13, symbolType="square")),
+            order=alt.Order("o:Q"),
+            tooltip=[alt.Tooltip("Ausgang:N"), alt.Tooltip("n:Q", title="Anzahl")],
+        )
+        labels = alt.Chart(df).mark_text(color="white", fontSize=13,
+                                         fontWeight="bold", align="right",
+                                         dx=-8, baseline="middle").encode(
+            x=alt.X("n:Q", stack="zero", scale=alt.Scale(domain=[0, total])),
+            detail="Ausgang:N",
+            order=alt.Order("o:Q"),
+            text=alt.condition("datum.n >= 3", alt.Text("n:Q"), alt.value("")),
+        )
+        st.markdown(f"**{title}**")
+        st.altair_chart((bars + labels).properties(height=48),
+                        use_container_width=True)
+
+    _stack(f"Match existiert ({mappable}) — kann die KI ihn finden?", [
+        ("exakt richtig gemappt", counts["confirmed"], "#2e9e5b"),
+        ("falsches Finding gewählt", counts["corrected"], "#e8c14d"),
+        ("übersehen", counts["human_added"], "#e8802a"),
+    ])
+    _stack(f"Kein Match existiert ({nonmap}) — erkennt die KI das?", [
+        ("korrekt: kein Match", counts["confirmed_empty"], "#8fd0a0"),
+        ("fälschlich gemappt", counts["rejected"], "#d0433b"),
+    ])
     st.caption("Lesart: Die KI irrt fast nur in eine Richtung — sie übersieht Matches "
                "(zu streng), statt falsche zu erfinden.")
 
@@ -1012,9 +1045,9 @@ if mode.startswith("🧠"):
     st.dataframe(atext.style.apply(_abg, axis=0), use_container_width=True)
     st.caption("Zeilen kumuliert (≥ Größe) · Zelle: exakt korrekte KI-Urteile / gesamt.")
 
-    st.subheader("Pro Auto")
-    st.dataframe(pd.DataFrame(per_car)
-                 .style.format({"Genauigkeit": "{:.0%}"})
-                 .background_gradient(subset=["Genauigkeit"], cmap="RdYlGn",
-                                      vmin=0, vmax=1),
-                 use_container_width=True, hide_index=True)
+    with st.expander("Pro Auto (Detail)"):
+        st.dataframe(pd.DataFrame(per_car)
+                     .style.format({"Genauigkeit": "{:.0%}"})
+                     .background_gradient(subset=["Genauigkeit"], cmap="RdYlGn",
+                                          vmin=0, vmax=1),
+                     use_container_width=True, hide_index=True)
