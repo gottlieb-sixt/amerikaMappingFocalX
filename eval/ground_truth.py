@@ -66,6 +66,11 @@ def load_truths(path: Path, exterior_only: bool = True) -> list[Truth]:
             group = str(lv.get("5") or "")
             if exterior_only and not is_exterior_non_glass(part, group):
                 continue
+            # Feld 31 = is_repaired (REPAIR_STATUS_TRUE=1; FALSE=0 wird im
+            # Binärformat weggelassen). Reparierte Schäden sind nicht mehr am
+            # Auto — FocalX kann sie nicht finden, sie zählen nicht als Miss.
+            if d.get("31") == 1:
+                continue
             out.append(Truth(
                 damage_id=str(d.get("3") or d.get("1")),
                 part=part,
