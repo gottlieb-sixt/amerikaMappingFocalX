@@ -932,7 +932,7 @@ else:
             ("bis ohne Lack", {"Delle ohne Lackschaden"}),
             ("bis mit Lack (alle)", {"Delle ohne Lackschaden",
                                      "Delle mit Lackschaden"}),
-        ])
+        ], all_sizes=True)
     st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
                "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
                "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs.")
