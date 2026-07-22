@@ -64,6 +64,42 @@ def gt_images(key: str, damage_id: str) -> list[Path]:
 
 
 @st.cache_data(show_spinner=False)
+def late_ids(key: str, checkin: str) -> set[str]:
+    """Schadensnummern, deren Fall erst NACH dem Check-in-Tag angelegt wurde
+    (Fall-Feld 34 = damage_created_at) — konnte auf den Fotos nicht zu sehen sein."""
+    import datetime as _dt
+    dirs = sorted((ROOT / "data" / "raw").glob(f"*/{checkin}"))
+    f = ROOT / "data" / "ground_truth" / f"{key}.json"
+    if not dirs or not f.exists():
+        return set()
+    try:
+        cutoff = _dt.datetime.fromisoformat(
+            dirs[0].parent.name + "T23:59:59+02:00").timestamp()
+    except ValueError:
+        return set()
+    out: set[str] = set()
+    d = json.loads(f.read_text())
+    cases = d.get("2") or []
+    if isinstance(cases, dict):
+        cases = [cases]
+    for c in cases:
+        v = c.get("34") or c.get("32")
+        try:
+            ts = int(str(v.get("1"))) if isinstance(v, dict) else None
+        except (TypeError, ValueError):
+            ts = None
+        if not ts or ts <= cutoff:
+            continue
+        dms = c.get("31") or []
+        if isinstance(dms, dict):
+            dms = [dms]
+        for dm in dms:
+            if isinstance(dm, dict):
+                out.add(str(dm.get("3")))
+    return out
+
+
+@st.cache_data(show_spinner=False)
 def repaired_ids(key: str) -> set[str]:
     """Schadensnummern, die laut SHARK schon repariert sind (GT-Feld 31 = 1).
     Reparierte Schäden sind nicht mehr am Auto → zählen nicht als FocalX-Miss."""
@@ -217,7 +253,8 @@ if mode.startswith("📊"):
     def _row(r: dict) -> dict:
         ph = r.get("physical") or {}
         pairs = ph.get("cluster_pairs") or []
-        rep = repaired_ids(plate_key(r["plate"]))
+        rep = (repaired_ids(plate_key(r["plate"]))
+               | late_ids(plate_key(r["plate"]), r["checkin"]))
         n_rep = sum(1 for cp in pairs if cp["damage_ids"]
                     and all(d in rep for d in cp["damage_ids"]))
         tot = ph.get("gt_total")
@@ -228,7 +265,7 @@ if mode.startswith("📊"):
             "Check-in": r["checkin"].split("__")[1],
             "Schäden (DB)": r["ground_truth_total"],
             "Physisch (DB)": tot_adj,
-            "🔧 Repariert": n_rep,
+            "🔧/⏰ Nicht bewertbar": n_rep,
             "Gefunden (physisch)": found,
             "Recall": (found / tot_adj if found is not None and tot_adj else
                        ph.get("recall", r["recall"])),
@@ -384,6 +421,7 @@ elif mode.startswith("🔍"):
                        key="review_checkin_sel", format_func=_car_label)
     r = _by_checkin[sel]
     repaired = repaired_ids(plate_key(r["plate"]))
+    late = late_ids(plate_key(r["plate"]), r["checkin"])
     if not ai_scan_done(r):
         st.warning("🟡 Für dieses Auto läuft der AI-Scan noch — Vorschläge "
                    "können sich gleich noch ändern. Grüne Autos zuerst reviewen.")
@@ -467,9 +505,11 @@ elif mode.startswith("🔍"):
         ai_avail = not r.get("mapping_pending")
         excluded = bool(rev and rev["verdict"] == "excluded")
         was_repaired = all(d in repaired for d in dmg_ids)
-        if was_repaired:
+        was_late = not was_repaired and all(d in (repaired | late) for d in dmg_ids)
+        if was_repaired or was_late:
             excluded = True   # zählt wie ausgeschlossen, nur automatisch
         status = ("🔧" if was_repaired
+                  else "⏰" if was_late
                   else "🚫" if excluded
                   else "✅" if rev and rev["verdict"].startswith("confirmed")
                   else "✏️" if rev else "⬜")
@@ -502,6 +542,10 @@ elif mode.startswith("🔍"):
                     if was_repaired:
                         st.markdown("🔧 **Laut SHARK bereits repariert** — nicht mehr am "
                                     "Auto, zählt automatisch nicht in die Statistik")
+                    elif was_late:
+                        st.markdown("⏰ **Erst nach dem Check-in erfasst** — konnte auf "
+                                    "den Fotos nicht zu sehen sein, zählt automatisch "
+                                    "nicht in die Statistik")
                     elif excluded:
                         st.markdown(f"🚫 **Ausgeschlossen** — {rev.get('reason') or 'ohne Grund'} "
                                     f"(zählt nicht in die Statistik)")
@@ -747,14 +791,14 @@ else:
         basis_cars += 1
         rev = load_review(r["checkin"])
         truths_r = {str(t["damage_id"]): t for t in r["truths"]}
-        rep = repaired_ids(plate_key(r["plate"]))
+        rep = repaired_ids(plate_key(r["plate"])) | late_ids(plate_key(r["plate"]), r["checkin"])
         for cp in (r.get("physical") or {}).get("cluster_pairs") or []:
             gt_key = "+".join(sorted(cp["damage_ids"]))
             rv = rev.get(gt_key)
             if rv and rv.get("verdict") == "excluded":
                 continue
             if all(d in rep for d in cp["damage_ids"]):
-                continue   # bereits repariert → nicht mehr am Auto
+                continue   # repariert oder erst nach den Fotos erfasst
             if rv:
                 found = bool(rv.get("human"))
             else:

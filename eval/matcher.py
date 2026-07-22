@@ -82,6 +82,7 @@ class Truth:
     segment: str              # coordinates[0].segment
     severity: str | None = None
     case_number: str | None = None
+    created_at: int | None = None   # damage_created_at des Falls (Unix-Sekunden)
 
 
 @dataclass

@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from .focalx import FocalxClient
@@ -89,6 +90,19 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str,
     images = images_for(checkin_dir)
     gt_file = GT / f"{key}.json"
     truths = load_truths(gt_file) if gt_file.exists() else []
+    # Fotos können nur Schäden zeigen, die es am Check-in-Tag schon gab.
+    # checkin_dir liegt unter data/raw/<datum>/ → Cutoff = Ende dieses Tages.
+    try:
+        _cutoff = datetime.fromisoformat(
+            checkin_dir.parent.name + "T23:59:59+02:00").timestamp()
+        _before = len(truths)
+        truths = [t for t in truths
+                  if not (t.created_at and t.created_at > _cutoff)]
+        if len(truths) != _before:
+            print(f"  {_before - len(truths)} Schäden erst nach dem Check-in "
+                  f"erfasst → übersprungen", flush=True)
+    except ValueError:
+        pass
     print(f"  {len(images)} Bilder, {len(truths)} Ground-Truth-Schäden", flush=True)
     if not images:
         # Alter Foto-Flow (vor den 19 Positionen) — nichts zu inspizieren.

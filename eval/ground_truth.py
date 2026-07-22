@@ -48,6 +48,14 @@ def load_truths(path: Path, exterior_only: bool = True) -> list[Truth]:
     for case in _as_list(data.get("2")):
         if not isinstance(case, dict):
             continue
+        # Feld 34 = damage_created_at, 32 = damage_occurred_at (Timestamp.seconds)
+        _ts = case.get("34") or case.get("32")
+        created_at = None
+        if isinstance(_ts, dict):
+            try:
+                created_at = int(str(_ts.get("1")))
+            except (TypeError, ValueError):
+                pass
         for d in _as_list(case.get("31")):
             if not isinstance(d, dict):
                 continue
@@ -80,5 +88,6 @@ def load_truths(path: Path, exterior_only: bool = True) -> list[Truth]:
                 segment=seg,
                 severity=str(lv.get("3")) if lv.get("3") else None,
                 case_number=str(case.get("2") or ""),
+                created_at=created_at,
             ))
     return out
