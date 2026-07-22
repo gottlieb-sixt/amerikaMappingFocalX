@@ -64,6 +64,21 @@ def gt_images(key: str, damage_id: str) -> list[Path]:
 
 
 @st.cache_data(show_spinner=False)
+def _thumb_b64(path: str, max_w: int = 900) -> str:
+    """Bild als kompaktes Base64-Data-URI (runterskaliert fürs Inline-Einbetten)."""
+    import base64
+    import io
+    from PIL import Image
+    im = Image.open(path)
+    im = im.convert("RGB")
+    if im.width > max_w:
+        im = im.resize((max_w, int(im.height * max_w / im.width)))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=72)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+@st.cache_data(show_spinner=False)
 def position_photo(checkin: str, focalx_pos: str) -> str | None:
     """Original-Check-in-Foto zu einem FocalX-Positionslabel (Fallback,
     wenn ein Finding kein Close-up hat)."""
@@ -656,11 +671,8 @@ elif mode.startswith("🔍"):
                             elif imgs:
                                 # Klick aufs Bild schaltet zum nächsten Cluster-Mitglied.
                                 # Optik identisch zu st.image; Chip nur bei Hover.
-                                import base64 as _b64
                                 _payload = json.dumps([
-                                    {"k": k,
-                                     "src": "data:image/jpeg;base64,"
-                                            + _b64.b64encode(p_.read_bytes()).decode()}
+                                    {"k": k, "src": _thumb_b64(str(p_))}
                                     for k, p_ in imgs])
                                 components.html(f"""
                                 <body style="margin:0">
