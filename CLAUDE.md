@@ -82,8 +82,10 @@ GT-Foto-URLs (presigned) halten 15–30 min → nach `--refetch` sofort laden.
 
 ## SHARK-Protobuf-Feldkarte (verifiziert gegen Klartext-Referenzen)
 
-- Antwort: `2` = cases[] · Case: `2` = case_number, `31` = damages[],
-  `32` = damage_occurred_at, `34` = damage_created_at (`{1: seconds}`)
+- Antwort: `2` = cases[] · Case: `2` = case_number, `11` = source_system
+  (**2=OPERATION_APP/Agent, 10=DAMAGE GATE** — per Foto-Wasserzeichen verifiziert —,
+  14=ASSURED, 7/8=unbekannt), `31` = damages[], `32` = damage_occurred_at,
+  `34` = damage_created_at (`{1: seconds}`), `47` = kls_status (Case-Ebene)
 - Damage: `3` = damage_number · `20` = coordinates (`3`=projection, `4`=segment,
   `6/7`=x/y, `9`=Fotos mit presigned URLs) · `24` = kls_status (3=BIG, 4=SMALL) ·
   **`31` = is_repaired (nur TRUE=1 serialisiert!)** · `39` = localized_values
