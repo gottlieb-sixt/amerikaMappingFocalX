@@ -532,9 +532,36 @@ elif mode.startswith("🔍"):
                             if len(imgs) == 1:
                                 st.image(str(imgs[0][1]), use_container_width=True)
                             elif imgs:
-                                mc = st.columns(len(imgs))
-                                for c_, (k, p_) in zip(mc, imgs):
-                                    c_.image(str(p_), use_container_width=True, caption=k)
+                                # Klick aufs Bild schaltet zum nächsten Cluster-Mitglied
+                                import base64 as _b64
+                                _payload = json.dumps([
+                                    {"k": k,
+                                     "src": "data:image/jpeg;base64,"
+                                            + _b64.b64encode(p_.read_bytes()).decode()}
+                                    for k, p_ in imgs])
+                                components.html(f"""
+                                <div id="cyc" style="position:relative;cursor:pointer">
+                                  <img id="im" style="width:100%;height:210px;
+                                       object-fit:cover;border-radius:8px">
+                                  <div id="badge" style="position:absolute;top:6px;left:6px;
+                                       background:rgba(0,0,0,.65);color:#fff;padding:2px 8px;
+                                       border-radius:10px;font-size:12px;
+                                       font-family:sans-serif"></div>
+                                </div>
+                                <script>
+                                  const imgs = {_payload}; let i = 0;
+                                  const im = document.getElementById('im');
+                                  const badge = document.getElementById('badge');
+                                  function show() {{
+                                    im.src = imgs[i].src;
+                                    badge.textContent = imgs[i].k + ' (' + (i+1) + '/'
+                                        + imgs.length + ') — klicken: nächstes Bild';
+                                  }}
+                                  document.getElementById('cyc').onclick = () => {{
+                                    i = (i + 1) % imgs.length; show();
+                                  }};
+                                  show();
+                                </script>""", height=218)
                             st.caption(f"**{'+'.join(keys)}** · {f0['part']} · {f0['type']}"
                                        + (" · 🧠 **AI-Vorschlag**" if is_ai else ""))
                             label = ("✅ Gewählt" if is_current
