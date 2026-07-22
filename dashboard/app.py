@@ -965,8 +965,7 @@ else:
                "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs.")
 
     st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
-    _src_cols = [("Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"}),
-                 ("alle Quellen", {"gate", "other"})]
+    _src_cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
     _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
     _g_rows = [f"≥ {b}" for b in _gsizes]
     gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
