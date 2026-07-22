@@ -524,9 +524,17 @@ elif mode.startswith("🔍"):
                     is_current = rev is not None and set(rev["human"]) == set(keys)
                     with col:
                         with st.container(border=True):
-                            cu = ROOT / f0["closeup"] if f0.get("closeup") else None
-                            if cu and cu.exists():
-                                st.image(str(cu), use_container_width=True)
+                            # ALLE Mitglieder des Clusters zeigen — eine falsche
+                            # Gruppierung muss sichtbar sein, nicht versteckt.
+                            imgs = [(k, ROOT / findings[k]["closeup"])
+                                    for k in keys if findings[k].get("closeup")]
+                            imgs = [(k, p_) for k, p_ in imgs if p_.exists()]
+                            if len(imgs) == 1:
+                                st.image(str(imgs[0][1]), use_container_width=True)
+                            elif imgs:
+                                mc = st.columns(len(imgs))
+                                for c_, (k, p_) in zip(mc, imgs):
+                                    c_.image(str(p_), use_container_width=True, caption=k)
                             st.caption(f"**{'+'.join(keys)}** · {f0['part']} · {f0['type']}"
                                        + (" · 🧠 **AI-Vorschlag**" if is_ai else ""))
                             label = ("✅ Gewählt" if is_current
@@ -538,6 +546,19 @@ elif mode.startswith("🔍"):
                                 save_review(r["checkin"], gt_key, list(keys), ai_keys,
                                             ai_available=ai_avail)
                                 st.rerun()
+                            if len(keys) > 1:
+                                # Gruppierung könnte falsch sein → einzeln mappbar
+                                sc_ = st.columns(len(keys))
+                                for c_, k in zip(sc_, keys):
+                                    single_cur = (rev is not None
+                                                  and set(rev["human"]) == {k})
+                                    if c_.button(f"nur {k}" + (" ✅" if single_cur else ""),
+                                                 key=f"pick1_{sel}_{gt_key}_{ci}_{k}",
+                                                 use_container_width=True,
+                                                 disabled=single_cur):
+                                        save_review(r["checkin"], gt_key, [k], ai_keys,
+                                                    ai_available=ai_avail)
+                                        st.rerun()
             none_current = (rev is not None and not rev["human"]
                             and rev["verdict"] != "excluded")
             bcols = st.columns([3, 2, 2])
