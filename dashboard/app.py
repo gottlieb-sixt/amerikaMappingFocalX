@@ -519,8 +519,9 @@ elif mode.startswith("🔍"):
                   else "✏️" if rev else "🟡")
         open_key = f"open_{sel}_{gt_key}"
         reviewed_row = rev is not None or excluded
-        if reviewed_row and not st.session_state.get(open_key):
-            # Erledigt → kompakte Zeile mit Haken; "ändern" klappt wieder auf
+        # Default: erledigte Karten zu, offene auf — manuell umschaltbar
+        is_open = st.session_state.get(open_key, not reviewed_row)
+        if not is_open:
             with st.container(border=True, key=f"dmgc_{sel}_{gi}"):
                 cc = st.columns([11, 2])
                 if was_repaired:
@@ -531,15 +532,17 @@ elif mode.startswith("🔍"):
                     res = f"🚫 ausgeschlossen ({rev.get('reason') or 'ohne Grund'})"
                 elif rev and rev["human"]:
                     res = "gemappt: **" + ", ".join(rev["human"]) + "**"
-                else:
+                elif rev:
                     res = "kein Match"
+                else:
+                    res = "🟡 **noch offen**"
                 cc[0].markdown(f"{status} **#{'+#'.join(dmg_ids)}** · {t['part']} · "
                                f"{t['damage_type']} · {t['side_attr']} — {res}")
-                if not (was_repaired or was_late):
-                    if cc[1].button("✏️ ändern", key=f"edit_{sel}_{gt_key}",
-                                    use_container_width=True):
-                        st.session_state[open_key] = True
-                        st.rerun()
+                _lbl = "⤵️ aufklappen" if (was_repaired or was_late or rev is None) else "✏️ ändern"
+                if cc[1].button(_lbl, key=f"edit_{sel}_{gt_key}",
+                                use_container_width=True):
+                    st.session_state[open_key] = True
+                    st.rerun()
             continue
 
         if excluded:
@@ -558,7 +561,12 @@ elif mode.startswith("🔍"):
             # ── Sticky GT-Kopf: Infos + Fotos, bleibt beim Scrollen stehen ──
             with st.container(key=f"sticky_{sel}_{gi}"):
                 st.markdown('<span class="gt-sticky-marker"></span>', unsafe_allow_html=True)
-                head = st.columns([3, 4])
+                head = st.columns([2.9, 3.6, 0.5])
+                with head[2]:
+                    if st.button("⤴️", key=f"close_{sel}_{gt_key}",
+                                 help="Karte einklappen", use_container_width=True):
+                        st.session_state[open_key] = False
+                        st.rerun()
                 with head[0]:
                     st.markdown(
                         f"### {status} #{'+#'.join(dmg_ids)} · {t['part']} · "
@@ -676,7 +684,7 @@ elif mode.startswith("🔍"):
                                          disabled=is_current):
                                 save_review(r["checkin"], gt_key, list(keys), ai_keys,
                                             ai_available=ai_avail)
-                                st.session_state.pop(open_key, None)
+                                st.session_state[open_key] = False
                                 st.rerun()
             none_current = (rev is not None and not rev["human"]
                             and rev["verdict"] != "excluded")
@@ -686,7 +694,7 @@ elif mode.startswith("🔍"):
                              + (" (gewählt)" if none_current else ""),
                              key=f"none_{sel}_{gt_key}", disabled=none_current):
                     save_review(r["checkin"], gt_key, [], ai_keys, ai_available=ai_avail)
-                    st.session_state.pop(open_key, None)
+                    st.session_state[open_key] = False
                     st.rerun()
             with bcols[1]:
                 excl_reason = st.text_input("Grund", key=f"exclreason_{sel}_{gt_key}",
@@ -700,7 +708,7 @@ elif mode.startswith("🔍"):
                         save_review(r["checkin"], gt_key, [], ai_keys,
                                     ai_available=ai_avail, exclude=True,
                                     reason=excl_reason)
-                        st.session_state.pop(open_key, None)
+                        st.session_state[open_key] = False
                         st.rerun()
                 else:
                     if st.button("↩️ Wieder aufnehmen",
