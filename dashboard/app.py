@@ -432,11 +432,15 @@ elif mode.startswith("🔍"):
     gcl = gt_clusters_of(r)
     review = load_review(r["checkin"])
 
-    done = sum(1 for ids in gcl if "+".join(sorted(ids)) in review)
+    _auto = repaired | late
+    gcl_open = [ids for ids in gcl if not all(d in _auto for d in ids)]
+    n_auto = len(gcl) - len(gcl_open)
+    done = sum(1 for ids in gcl_open if "+".join(sorted(ids)) in review)
     pc1, pc2 = st.columns([4, 2])
     with pc1:
-        st.progress(done / len(gcl) if gcl else 1.0,
-                    text=f"{done}/{len(gcl)} Schäden reviewt")
+        st.progress(done / len(gcl_open) if gcl_open else 1.0,
+                    text=f"{done}/{len(gcl_open)} Schäden reviewt"
+                         + (f" · {n_auto} automatisch ausgeschlossen (🔧/⏰)" if n_auto else ""))
     with pc2:
         is_done = review_done(review)
         new_done = st.toggle("✔️ Mit diesem Auto durch — in Statistik aufnehmen",
@@ -444,8 +448,8 @@ elif mode.startswith("🔍"):
         if new_done != is_done:
             set_review_done(r["checkin"], new_done)
             st.rerun()
-    if done < len(gcl) and review_done(review):
-        st.warning(f"⚠️ Als abgeschlossen markiert, aber erst {done}/{len(gcl)} Schäden reviewt.")
+    if done < len(gcl_open) and review_done(review):
+        st.warning(f"⚠️ Als abgeschlossen markiert, aber erst {done}/{len(gcl_open)} Schäden reviewt.")
 
     # Alle Original-Fotos des Check-ins (die an FocalX gingen) — zum Selbst-Prüfen
     _photo_dirs = sorted((ROOT / "data" / "raw").glob(f"*/{sel}"))
