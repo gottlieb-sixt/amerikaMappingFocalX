@@ -930,20 +930,62 @@ else:
                    "2–4 Zoll: Recall für alle Schäden ab 2 Zoll.")
     with col_d:
         st.subheader("Nach Schwere / Tiefe")
-        st.dataframe(bucket_df(depth_stat, DEPTH_ORDER, "Schwere")
-                     .style.format({"Recall": "{:.0%}"})
-                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
+        # Zwei Leitern, jeweils leicht → schwer; kumuliert = ab hier und schwerer
+        _ladders = [
+            [b for b in ["Kratzer oberflächlich", "Kratzer bis Grundierung"]
+             if b in depth_stat],
+            [b for b in ["Delle ohne Lackschaden", "Delle mit Lackschaden"]
+             if b in depth_stat],
+        ]
+        _rows = []
+        for ladder in _ladders:
+            for i, b in enumerate(ladder):
+                g, t_ = depth_stat[b]
+                cg = sum(depth_stat[x][0] for x in ladder[i:])
+                ct = sum(depth_stat[x][1] for x in ladder[i:])
+                _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
+                              "Recall": g / t_, "ab hier (kum.)": f"{cg}/{ct}",
+                              "Recall (kum.)": cg / ct})
+        for b in ("komplett", "ohne Angabe"):
+            if b in depth_stat:
+                g, t_ = depth_stat[b]
+                _rows.append({"Schwere": b, "Gefunden": g, "Gesamt": t_,
+                              "Recall": g / t_, "ab hier (kum.)": "–",
+                              "Recall (kum.)": None})
+        st.dataframe(pd.DataFrame(_rows)
+                     .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
+                                   na_rep="–")
+                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
+                     .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
+                                          vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
+        st.caption("kum. innerhalb der Leiter: Kratzer oberflächlich→Grundierung, "
+                   "Delle ohne→mit Lackschaden.")
 
     # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
-    st.subheader("Matrix: Größe × Schwere")
-    rows = [b for b in SIZE_ORDER if any(k[0] == b for k in cell_stat)]
-    cols = [b for b in DEPTH_ORDER if any(k[1] == b for k in cell_stat)]
-    text = pd.DataFrame("–", index=rows, columns=cols)
-    recall = pd.DataFrame(float("nan"), index=rows, columns=cols)
-    for (sb, db_), (g, t_) in cell_stat.items():
-        text.loc[sb, db_] = f"{g}/{t_} ({g / t_:.0%})"
-        recall.loc[sb, db_] = g / t_
+    st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
+    _sizes = [b for b in ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll",
+                          "2–4 Zoll", "> 4 Zoll"]
+              if any(k[0] == b for k in cell_stat)]
+    _sev_cols = [
+        ("Kratzer ≥ oberflächlich", {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
+        ("Kratzer ≥ Grundierung", {"Kratzer bis Grundierung"}),
+        ("Delle ≥ ohne Lack", {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
+        ("Delle ≥ mit Lack", {"Delle mit Lackschaden"}),
+    ]
+    rows_lbl = [f"≥ {b}" for b in _sizes]
+    text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in _sev_cols])
+    recall = pd.DataFrame(float("nan"), index=rows_lbl, columns=[c for c, _ in _sev_cols])
+    for i, sb in enumerate(_sizes):
+        bigger = set(_sizes[i:])
+        for cname, dset in _sev_cols:
+            g = sum(v[0] for k, v in cell_stat.items()
+                    if k[0] in bigger and k[1] in dset)
+            t_ = sum(v[1] for k, v in cell_stat.items()
+                     if k[0] in bigger and k[1] in dset)
+            if t_:
+                text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                recall.loc[f"≥ {sb}", cname] = g / t_
     import matplotlib
     _cmap = matplotlib.colormaps["RdYlGn"]
 
@@ -960,4 +1002,6 @@ else:
         return out
 
     st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
-    st.caption("Zeilen = Größe, Spalten = Schwere/Tiefe · Zelle: gefunden/gesamt (Recall)")
+    st.caption("Zelle = alle Schäden mit **Größe ≥ Zeile** und **Schwere ≥ Spalte** "
+               "(Schwere-Leitern getrennt: Kratzer bzw. Delle) · gefunden/gesamt (Recall). "
+               "Oberste Zeile links = alle Kratzer bzw. Dellen gesamt.")
