@@ -920,16 +920,16 @@ else:
     with col_k:
         st.markdown("**Kratzer** — Größe × Tiefe")
         _cum_matrix([
-            ("bis oberflächlich", {"Kratzer oberflächlich"}),
-            ("bis Grundierung (alle)", {"Kratzer oberflächlich",
-                                        "Kratzer bis Grundierung"}),
+            ("oberflächlich", {"Kratzer oberflächlich"}),
+            ("oberflächlich + Grundierung (alle Kratzer)",
+             {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
         ], all_sizes=True)
     with col_de:
         st.markdown("**Delle** — Größe × Lackschaden")
         _cum_matrix([
-            ("bis ohne Lack", {"Delle ohne Lackschaden"}),
-            ("bis mit Lack (alle)", {"Delle ohne Lackschaden",
-                                     "Delle mit Lackschaden"}),
+            ("ohne Lack", {"Delle ohne Lackschaden"}),
+            ("ohne + mit Lack (alle Dellen)",
+             {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
         ], all_sizes=True)
     st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
                "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
