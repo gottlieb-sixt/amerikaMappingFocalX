@@ -42,7 +42,7 @@ if not data:
     st.info("Noch keine Ergebnisse — erst `python -m eval.pipeline …` laufen lassen.")
     st.stop()
 
-MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "📈 Metriken"]
+MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping"]
 # Navigation aus der Übersicht: VOR der Radio-Instanziierung verarbeiten
 # (session_state eines gerenderten Widgets darf nicht mehr geändert werden).
 if "nav_to_review" in st.session_state:
@@ -302,106 +302,198 @@ def ai_block(f: dict, accent: str, note_text: str = "") -> str:
 
 # ════════════════════════════════════════════════════════════════════════════
 if mode.startswith("📊"):
-    st.title("🚗 FocalX Detection Evaluation")
-    st.header("Übersicht")
-    def _row(r: dict) -> dict:
-        ph = r.get("physical") or {}
-        pairs = ph.get("cluster_pairs") or []
-        rep = (repaired_ids(plate_key(r["plate"]))
-               | late_ids(plate_key(r["plate"]), r["checkin"]))
-        n_rep = sum(1 for cp in pairs if cp["damage_ids"]
-                    and all(d in rep for d in cp["damage_ids"]))
-        tot = ph.get("gt_total")
-        tot_adj = (tot - n_rep) if tot is not None else None
-        found = ph.get("gt_found")
-        return {
-            "Kennzeichen": r["plate"],
-            "Check-in": r["checkin"].split("__")[1],
-            "Schäden (DB)": r["ground_truth_total"],
-            "Physisch (DB)": tot_adj,
-            "🔧/⏰ Nicht bewertbar": n_rep,
-            "Gefunden (physisch)": found,
-            "Recall": (found / tot_adj if found is not None and tot_adj else
-                       ph.get("recall", r["recall"])),
-            "Neue Schäden (unique)": ph.get("extras_unique", len(r["extra_findings"])),
-            "Status": ("🟢 AI-Scan fertig — reviewbar" if ai_scan_done(r)
-                       else "⏳ Mapping ausstehend" if r.get("mapping_pending")
-                       else "🟡 AI-Scan läuft"),
-            "Zeitpunkt": r["timestamp"],
-        }
+    st.title("📊 Ergebnisse — FocalX Detection")
+    st.caption("Detection-Analyse auf Basis deiner Reviews (Gold-Standard). "
+               "Die Live-Zähler zu FocalX/AI stehen oben im Review-Modus.")
+    rev_files = sorted(REVIEWS.glob("*.json")) if REVIEWS.exists() else []
+    if not rev_files:
+        st.info("Noch keine Reviews — erst im Review-Modus Schäden bestätigen/mappen.")
+        st.stop()
 
-    rows = [_row(r) for r in data]
-    df = pd.DataFrame(rows)
-    mapped = df[df["Status"] != "⏳ Mapping ausstehend"]
-    total_phys = int(mapped["Physisch (DB)"].fillna(0).sum())
-    total_found = int(mapped["Gefunden (physisch)"].fillna(0).sum())
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Check-ins", len(df))
-    c2.metric("Physische Schäden (DB, gemappt)", total_phys)
-    c3.metric("Davon gefunden", total_found)
-    c4.metric("Neue Schäden (unique)", int(mapped["Neue Schäden (unique)"].fillna(0).sum()))
-    c5.metric("Recall (physisch)", f"{total_found / total_phys:.0%}" if total_phys else "–")
-    st.caption("Zeile anklicken → Review dieses Autos")
-    _dfk = st.session_state.get("df_key_n", 0)
-    _ready = [ai_scan_done(r) for r in data]
-    _sty = (df.style
-            .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
-            .apply(lambda row: ["background-color:#d9f2e0" if _ready[row.name] and c != "Recall"
-                                else "" for c in df.columns], axis=1))
-    ev = st.dataframe(
-        _sty,
-        use_container_width=True, hide_index=True,
-        on_select="rerun", selection_mode="single-row", key=f"overview_df_{_dfk}",
-    )
-    if ev.selection.rows:
-        st.session_state["nav_to_review"] = data[ev.selection.rows[0]]["checkin"]
-        st.session_state["df_key_n"] = _dfk + 1   # frische Tabelle ohne Alt-Auswahl
-        st.rerun()
+    # ── Detection nach Größe & Schwere (validiert) ──────────────────────────
+    st.header("Detection nach Größe & Schwere (validiert)")
+    st.caption("Basis: nur ✔️-abgeschlossene Autos und ausschließlich dein "
+               "menschliches Urteil. Ausgeschlossene Schäden (🚫 manuell, "
+               "🔧 repariert, ⏰ zu spät erfasst) zählen nicht.")
 
-    st.header("Detail")
-    sel = st.selectbox("Check-in", [r["checkin"] for r in data])
-    r = next(x for x in data if x["checkin"] == sel)
-    key = plate_key(r["plate"])
-    truths = {str(t["damage_id"]): t for t in r["truths"]}
-    findings = {f["key"]: f for f in r["findings"]}
-    pair_by_truth = {p["damage_id"]: p for p in r.get("pairs", []) if p.get("findings")}
+    SIZE_ORDER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll",
+                  "> 4 Zoll", "komplett", "ohne Angabe"]
+    DEPTH_ORDER = ["Delle ohne Lackschaden", "Delle mit Lackschaden",
+                   "Kratzer oberflächlich", "Kratzer bis Grundierung",
+                   "komplett", "ohne Angabe"]
 
-    category = st.radio(
-        "Kategorie",
-        [f"✅ Gefunden ({len(r['found'])})",
-         f"❌ Nicht gefunden ({len(r['missed'])})",
-         f"➕ Zusätzliche AI-Funde ({len(r['extra_findings'])})"],
-        horizontal=True, label_visibility="collapsed",
-    )
-    st.caption("Klick auf ein Bild öffnet es groß — Mausrad zoomt, Ziehen verschiebt, Esc schließt.")
+    def size_bucket(sev: str | None) -> str:
+        s = (sev or "").lower()
+        if "0.5 inch" in s:
+            return "≤ 0,5 Zoll"
+        if "up to 1 inch" in s:
+            return "≤ 1 Zoll"
+        if "> 1 inch" in s:
+            return "> 1 Zoll"
+        if "< 2 inch" in s:
+            return "< 2 Zoll"
+        if "2-4 inch" in s:
+            return "2–4 Zoll"
+        if "> 4 inch" in s:
+            return "> 4 Zoll"
+        if "complete" in s:
+            return "komplett"
+        return "ohne Angabe"
 
-    cards: list[str] = []
-    if category.startswith("✅"):
-        for tid in r["found"]:
-            t, p = truths.get(tid, {}), pair_by_truth.get(tid)
-            fkeys = p.get("findings", []) if p else []
-            triage = {"auto_match": "🟢 auto_match", "review": "🟡 review"}.get(
-                (p or {}).get("triage") or "", "")
-            if p and p.get("via") == "ai":
-                nt = f"🧠 KI-Match ({p.get('confidence', '–')}) {triage} — {p.get('reason', '')}"
+    def depth_bucket(sev: str | None) -> str:
+        s = (sev or "").lower()
+        if "without paint" in s:
+            return "Delle ohne Lackschaden"
+        if "with paint" in s:
+            return "Delle mit Lackschaden"
+        if "superficial" in s:
+            return "Kratzer oberflächlich"
+        if "down to primer" in s:
+            return "Kratzer bis Grundierung"
+        if "complete" in s:
+            return "komplett"
+        return "ohne Angabe"
+
+    size_stat: dict[str, tuple[int, int]] = {}
+    depth_stat: dict[str, tuple[int, int]] = {}
+    cell_stat: dict[tuple[str, str], tuple[int, int]] = {}
+    gate_stat: dict[tuple[str, str], tuple[int, int]] = {}   # (Größe, gate/other)
+    basis_cars = basis_damages = 0
+    for r in data:
+        rev_all = load_review(r["checkin"])
+        if not review_done(rev_all):
+            continue
+        basis_cars += 1
+        auto = (repaired_ids(plate_key(r["plate"]))
+                | late_ids(plate_key(r["plate"]), r["checkin"]))
+        srcs = source_map(plate_key(r["plate"]))
+        truths_r = {str(t["damage_id"]): t for t in r["truths"]}
+        for gt_key, v in review_damages(rev_all).items():
+            ids = gt_key.split("+")
+            if all(d in auto for d in ids):
+                continue
+            if v.get("verdict") == "excluded":
+                continue
+            found = bool(v.get("human"))
+            sev = (truths_r.get(ids[0]) or {}).get("severity")
+            sb, db_ = size_bucket(sev), depth_bucket(sev)
+            basis_damages += 1
+            g, t_ = size_stat.get(sb, (0, 0)); size_stat[sb] = (g + found, t_ + 1)
+            g, t_ = depth_stat.get(db_, (0, 0)); depth_stat[db_] = (g + found, t_ + 1)
+            gk = "gate" if srcs.get(ids[0]) == 10 else "other"
+            g, t_ = cell_stat.get((sb, db_, gk), (0, 0))
+            cell_stat[(sb, db_, gk)] = (g + found, t_ + 1)
+            g, t_ = gate_stat.get((sb, gk), (0, 0)); gate_stat[(sb, gk)] = (g + found, t_ + 1)
+
+    st.caption(f"{basis_damages} validierte Schäden aus {basis_cars} Autos")
+
+    def bucket_df(stat: dict, order: list[str], label: str) -> pd.DataFrame:
+        return pd.DataFrame([
+            {label: b, "Gefunden": stat[b][0], "Nicht gefunden": stat[b][1] - stat[b][0],
+             "Gesamt": stat[b][1], "Recall": stat[b][0] / stat[b][1]}
+            for b in order if b in stat])
+
+    import matplotlib
+    _cmap = matplotlib.colormaps["RdYlGn"]
+    _MASTER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
+
+    st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
+    _src_cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
+    _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
+    _g_rows = [f"≥ {b}" for b in _gsizes]
+    gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
+    grecall = pd.DataFrame(float("nan"), index=_g_rows, columns=[c for c, _ in _src_cols])
+    for i, sb in enumerate(_gsizes):
+        bigger = set(_gsizes[i:])
+        for cname, gset in _src_cols:
+            g = sum(v[0] for k, v in gate_stat.items()
+                    if k[0] in bigger and k[1] in gset)
+            t_ = sum(v[1] for k, v in gate_stat.items()
+                     if k[0] in bigger and k[1] in gset)
+            if t_:
+                gtext.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                grecall.loc[f"≥ {sb}", cname] = g / t_
+
+    def _gbg(col: pd.Series) -> list[str]:
+        out = []
+        for i in col.index:
+            v = grecall.loc[i, col.name]
+            if pd.isna(v):
+                out.append("color: #bbb")
             else:
-                nt = f"⚙️ {p.get('reason') if p else 'Heuristik-Match'} {triage}"
-            ai_blocks = [ai_block(findings[k], BLUE, nt if i == 0 else "")
-                         for i, k in enumerate(fkeys) if k in findings]
-            cards.append(gallery.card(gt_block(key, tid, t, GREEN), *ai_blocks))
-        if not r["found"]:
-            st.warning("Kein DB-Schaden wurde gefunden (oder Mapping ausstehend).")
-    elif category.startswith("❌"):
-        for tid in r["missed"]:
-            cards.append(gallery.card(gt_block(key, tid, truths.get(tid, {}), RED)))
-        if not r["missed"]:
-            st.success("Alle DB-Schäden wurden gefunden.")
-    else:
-        for k in r["extra_findings"]:
-            cards.append(gallery.card(ai_block(findings.get(k, {}), ORANGE)))
-    components.html(gallery.render(cards), height=820, scrolling=True)
+                r_, g_, b_, _a = _cmap(v)
+                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
+                           f"{int(b_ * 255)},0.55)")
+        return out
 
-# ════════════════════════════════════════════════════════════════════════════
+    st.dataframe(gtext.style.apply(_gbg, axis=0), use_container_width=True)
+    st.caption("Erfassungsquelle des DB-Schadens (Case-Feld source_system): "
+               "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
+               "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
+    st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
+    def _cum_matrix(sev_cols: list[tuple[str, set, set]], all_sizes: bool = False) -> None:
+        all_sev = set().union(*[d for _, d, _src in sev_cols])
+        sizes = (_MASTER if all_sizes else
+                 [b for b in _MASTER
+                  if any(k[0] == b and k[1] in all_sev for k in cell_stat)])
+        rows_lbl = [f"≥ {b}" for b in sizes]
+        text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _, _s in sev_cols])
+        recall = pd.DataFrame(float("nan"), index=rows_lbl,
+                              columns=[c for c, _, _s in sev_cols])
+        for i, sb in enumerate(sizes):
+            bigger = set(sizes[i:])
+            for cname, dset, srcset in sev_cols:
+                g = sum(v[0] for k, v in cell_stat.items()
+                        if k[0] in bigger and k[1] in dset and k[2] in srcset)
+                t_ = sum(v[1] for k, v in cell_stat.items()
+                         if k[0] in bigger and k[1] in dset and k[2] in srcset)
+                if t_:
+                    text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                    recall.loc[f"≥ {sb}", cname] = g / t_
+
+        def _bg(col: pd.Series) -> list[str]:
+            out = []
+            for i in col.index:
+                v = recall.loc[i, col.name]
+                if pd.isna(v):
+                    out.append("color: #bbb")
+                else:
+                    r_, g_, b_, _ = _cmap(v)
+                    out.append(f"background-color: rgba({int(r_ * 255)},"
+                               f"{int(g_ * 255)},{int(b_ * 255)},0.55)")
+            return out
+
+        st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
+
+    ALLQ = {"gate", "other"}
+    OHNE = {"other"}
+    K_O = {"Kratzer oberflächlich"}
+    K_ALL = {"Kratzer oberflächlich", "Kratzer bis Grundierung"}
+    D_O = {"Delle ohne Lackschaden"}
+    D_ALL = {"Delle ohne Lackschaden", "Delle mit Lackschaden"}
+
+    st.markdown("**Kratzer** — Größe × Tiefe, jeweils mit / ohne Damage Gate")
+    _cum_matrix([
+        ("oberflächlich", K_O, ALLQ),
+        ("oberflächlich · ohne Gate", K_O, OHNE),
+        ("alle Kratzer", K_ALL, ALLQ),
+        ("alle Kratzer · ohne Gate", K_ALL, OHNE),
+    ], all_sizes=True)
+
+    st.markdown("**Delle** — Größe × Lackschaden, jeweils mit / ohne Damage Gate")
+    _cum_matrix([
+        ("ohne Lack", D_O, ALLQ),
+        ("ohne Lack · ohne Gate", D_O, OHNE),
+        ("alle Dellen", D_ALL, ALLQ),
+        ("alle Dellen · ohne Gate", D_ALL, OHNE),
+    ], all_sizes=True)
+    st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
+               "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
+               "ohne Gate = nur menschlich erfasste Schäden · "
+               "Zelle: gefunden/gesamt (Recall).")
+
+
+
 elif mode.startswith("🔍"):
     st.title("🔍 Review / manuelles Mapping")
 
@@ -777,194 +869,3 @@ elif mode.startswith("🔍"):
                         st.rerun()
 
 # ════════════════════════════════════════════════════════════════════════════
-else:
-    st.title("📈 Metriken")
-    st.caption("Detection-Analyse auf Basis deiner Reviews (Gold-Standard). "
-               "Die Live-Zähler zu FocalX/AI stehen oben im Review-Modus.")
-    rev_files = sorted(REVIEWS.glob("*.json")) if REVIEWS.exists() else []
-    if not rev_files:
-        st.info("Noch keine Reviews — erst im Review-Modus Schäden bestätigen/mappen.")
-        st.stop()
-
-    # ── Detection nach Größe & Schwere (validiert) ──────────────────────────
-    st.header("Detection nach Größe & Schwere (validiert)")
-    st.caption("Basis: nur ✔️-abgeschlossene Autos und ausschließlich dein "
-               "menschliches Urteil. Ausgeschlossene Schäden (🚫 manuell, "
-               "🔧 repariert, ⏰ zu spät erfasst) zählen nicht.")
-
-    SIZE_ORDER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll",
-                  "> 4 Zoll", "komplett", "ohne Angabe"]
-    DEPTH_ORDER = ["Delle ohne Lackschaden", "Delle mit Lackschaden",
-                   "Kratzer oberflächlich", "Kratzer bis Grundierung",
-                   "komplett", "ohne Angabe"]
-
-    def size_bucket(sev: str | None) -> str:
-        s = (sev or "").lower()
-        if "0.5 inch" in s:
-            return "≤ 0,5 Zoll"
-        if "up to 1 inch" in s:
-            return "≤ 1 Zoll"
-        if "> 1 inch" in s:
-            return "> 1 Zoll"
-        if "< 2 inch" in s:
-            return "< 2 Zoll"
-        if "2-4 inch" in s:
-            return "2–4 Zoll"
-        if "> 4 inch" in s:
-            return "> 4 Zoll"
-        if "complete" in s:
-            return "komplett"
-        return "ohne Angabe"
-
-    def depth_bucket(sev: str | None) -> str:
-        s = (sev or "").lower()
-        if "without paint" in s:
-            return "Delle ohne Lackschaden"
-        if "with paint" in s:
-            return "Delle mit Lackschaden"
-        if "superficial" in s:
-            return "Kratzer oberflächlich"
-        if "down to primer" in s:
-            return "Kratzer bis Grundierung"
-        if "complete" in s:
-            return "komplett"
-        return "ohne Angabe"
-
-    size_stat: dict[str, tuple[int, int]] = {}
-    depth_stat: dict[str, tuple[int, int]] = {}
-    cell_stat: dict[tuple[str, str], tuple[int, int]] = {}
-    gate_stat: dict[tuple[str, str], tuple[int, int]] = {}   # (Größe, gate/other)
-    basis_cars = basis_damages = 0
-    for r in data:
-        rev_all = load_review(r["checkin"])
-        if not review_done(rev_all):
-            continue
-        basis_cars += 1
-        auto = (repaired_ids(plate_key(r["plate"]))
-                | late_ids(plate_key(r["plate"]), r["checkin"]))
-        srcs = source_map(plate_key(r["plate"]))
-        truths_r = {str(t["damage_id"]): t for t in r["truths"]}
-        for gt_key, v in review_damages(rev_all).items():
-            ids = gt_key.split("+")
-            if all(d in auto for d in ids):
-                continue
-            if v.get("verdict") == "excluded":
-                continue
-            found = bool(v.get("human"))
-            sev = (truths_r.get(ids[0]) or {}).get("severity")
-            sb, db_ = size_bucket(sev), depth_bucket(sev)
-            basis_damages += 1
-            g, t_ = size_stat.get(sb, (0, 0)); size_stat[sb] = (g + found, t_ + 1)
-            g, t_ = depth_stat.get(db_, (0, 0)); depth_stat[db_] = (g + found, t_ + 1)
-            gk = "gate" if srcs.get(ids[0]) == 10 else "other"
-            g, t_ = cell_stat.get((sb, db_, gk), (0, 0))
-            cell_stat[(sb, db_, gk)] = (g + found, t_ + 1)
-            g, t_ = gate_stat.get((sb, gk), (0, 0)); gate_stat[(sb, gk)] = (g + found, t_ + 1)
-
-    st.caption(f"{basis_damages} validierte Schäden aus {basis_cars} Autos")
-
-    def bucket_df(stat: dict, order: list[str], label: str) -> pd.DataFrame:
-        return pd.DataFrame([
-            {label: b, "Gefunden": stat[b][0], "Nicht gefunden": stat[b][1] - stat[b][0],
-             "Gesamt": stat[b][1], "Recall": stat[b][0] / stat[b][1]}
-            for b in order if b in stat])
-
-    import matplotlib
-    _cmap = matplotlib.colormaps["RdYlGn"]
-    _MASTER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
-
-    st.subheader("Matrix: Größe × Erfassungsquelle (kumuliert)")
-    _src_cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
-    _gsizes = [b for b in _MASTER if any(k[0] == b for k in gate_stat)]
-    _g_rows = [f"≥ {b}" for b in _gsizes]
-    gtext = pd.DataFrame("–", index=_g_rows, columns=[c for c, _ in _src_cols])
-    grecall = pd.DataFrame(float("nan"), index=_g_rows, columns=[c for c, _ in _src_cols])
-    for i, sb in enumerate(_gsizes):
-        bigger = set(_gsizes[i:])
-        for cname, gset in _src_cols:
-            g = sum(v[0] for k, v in gate_stat.items()
-                    if k[0] in bigger and k[1] in gset)
-            t_ = sum(v[1] for k, v in gate_stat.items()
-                     if k[0] in bigger and k[1] in gset)
-            if t_:
-                gtext.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
-                grecall.loc[f"≥ {sb}", cname] = g / t_
-
-    def _gbg(col: pd.Series) -> list[str]:
-        out = []
-        for i in col.index:
-            v = grecall.loc[i, col.name]
-            if pd.isna(v):
-                out.append("color: #bbb")
-            else:
-                r_, g_, b_, _a = _cmap(v)
-                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
-                           f"{int(b_ * 255)},0.55)")
-        return out
-
-    st.dataframe(gtext.style.apply(_gbg, axis=0), use_container_width=True)
-    st.caption("Erfassungsquelle des DB-Schadens (Case-Feld source_system): "
-               "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
-               "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
-    st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
-    def _cum_matrix(sev_cols: list[tuple[str, set, set]], all_sizes: bool = False) -> None:
-        all_sev = set().union(*[d for _, d, _src in sev_cols])
-        sizes = (_MASTER if all_sizes else
-                 [b for b in _MASTER
-                  if any(k[0] == b and k[1] in all_sev for k in cell_stat)])
-        rows_lbl = [f"≥ {b}" for b in sizes]
-        text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _, _s in sev_cols])
-        recall = pd.DataFrame(float("nan"), index=rows_lbl,
-                              columns=[c for c, _, _s in sev_cols])
-        for i, sb in enumerate(sizes):
-            bigger = set(sizes[i:])
-            for cname, dset, srcset in sev_cols:
-                g = sum(v[0] for k, v in cell_stat.items()
-                        if k[0] in bigger and k[1] in dset and k[2] in srcset)
-                t_ = sum(v[1] for k, v in cell_stat.items()
-                         if k[0] in bigger and k[1] in dset and k[2] in srcset)
-                if t_:
-                    text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
-                    recall.loc[f"≥ {sb}", cname] = g / t_
-
-        def _bg(col: pd.Series) -> list[str]:
-            out = []
-            for i in col.index:
-                v = recall.loc[i, col.name]
-                if pd.isna(v):
-                    out.append("color: #bbb")
-                else:
-                    r_, g_, b_, _ = _cmap(v)
-                    out.append(f"background-color: rgba({int(r_ * 255)},"
-                               f"{int(g_ * 255)},{int(b_ * 255)},0.55)")
-            return out
-
-        st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
-
-    ALLQ = {"gate", "other"}
-    OHNE = {"other"}
-    K_O = {"Kratzer oberflächlich"}
-    K_ALL = {"Kratzer oberflächlich", "Kratzer bis Grundierung"}
-    D_O = {"Delle ohne Lackschaden"}
-    D_ALL = {"Delle ohne Lackschaden", "Delle mit Lackschaden"}
-
-    st.markdown("**Kratzer** — Größe × Tiefe, jeweils mit / ohne Damage Gate")
-    _cum_matrix([
-        ("oberflächlich", K_O, ALLQ),
-        ("oberflächlich · ohne Gate", K_O, OHNE),
-        ("alle Kratzer", K_ALL, ALLQ),
-        ("alle Kratzer · ohne Gate", K_ALL, OHNE),
-    ], all_sizes=True)
-
-    st.markdown("**Delle** — Größe × Lackschaden, jeweils mit / ohne Damage Gate")
-    _cum_matrix([
-        ("ohne Lack", D_O, ALLQ),
-        ("ohne Lack · ohne Gate", D_O, OHNE),
-        ("alle Dellen", D_ALL, ALLQ),
-        ("alle Dellen · ohne Gate", D_ALL, OHNE),
-    ], all_sizes=True)
-    st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
-               "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
-               "ohne Gate = nur menschlich erfasste Schäden · "
-               "Zelle: gefunden/gesamt (Recall).")
-
