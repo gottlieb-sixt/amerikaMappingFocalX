@@ -873,10 +873,11 @@ else:
     _cmap = matplotlib.colormaps["RdYlGn"]
     _MASTER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
 
-    def _cum_matrix(sev_cols: list[tuple[str, set]]) -> None:
+    def _cum_matrix(sev_cols: list[tuple[str, set]], all_sizes: bool = False) -> None:
         all_sev = set().union(*[d for _, d in sev_cols])
-        sizes = [b for b in _MASTER
-                 if any(k[0] == b and k[1] in all_sev for k in cell_stat)]
+        sizes = (_MASTER if all_sizes else
+                 [b for b in _MASTER
+                  if any(k[0] == b and k[1] in all_sev for k in cell_stat)])
         rows_lbl = [f"≥ {b}" for b in sizes]
         text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in sev_cols])
         recall = pd.DataFrame(float("nan"), index=rows_lbl,
@@ -913,7 +914,7 @@ else:
             ("bis oberflächlich", {"Kratzer oberflächlich"}),
             ("bis Grundierung (alle)", {"Kratzer oberflächlich",
                                         "Kratzer bis Grundierung"}),
-        ])
+        ], all_sizes=True)
     with col_de:
         st.markdown("**Delle** — Größe × Lackschaden")
         _cum_matrix([
