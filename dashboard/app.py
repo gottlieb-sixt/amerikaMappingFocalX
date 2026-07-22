@@ -902,44 +902,58 @@ else:
 
     # Matrix Größe × Schwere: Zelle = gefunden/gesamt (Recall), Farbe = Recall
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
-    _sizes = [b for b in ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll",
-                          "2–4 Zoll", "> 4 Zoll"]
-              if any(k[0] == b for k in cell_stat)]
-    _sev_cols = [
-        ("Kratzer bis oberfl.", {"Kratzer oberflächlich"}),
-        ("Kratzer bis Grund. (alle)", {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
-        ("Delle bis o. Lack", {"Delle ohne Lackschaden"}),
-        ("Delle bis m. Lack (alle)", {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
-    ]
-    rows_lbl = [f"≥ {b}" for b in _sizes]
-    text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in _sev_cols])
-    recall = pd.DataFrame(float("nan"), index=rows_lbl, columns=[c for c, _ in _sev_cols])
-    for i, sb in enumerate(_sizes):
-        bigger = set(_sizes[i:])
-        for cname, dset in _sev_cols:
-            g = sum(v[0] for k, v in cell_stat.items()
-                    if k[0] in bigger and k[1] in dset)
-            t_ = sum(v[1] for k, v in cell_stat.items()
-                     if k[0] in bigger and k[1] in dset)
-            if t_:
-                text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
-                recall.loc[f"≥ {sb}", cname] = g / t_
     import matplotlib
     _cmap = matplotlib.colormaps["RdYlGn"]
+    _MASTER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
 
-    def _bg(col: pd.Series) -> list[str]:
-        out = []
-        for i in col.index:
-            v = recall.loc[i, col.name]
-            if pd.isna(v):
-                out.append("color: #bbb")
-            else:
-                r_, g_, b_, _ = _cmap(v)
-                out.append(f"background-color: rgba({int(r_ * 255)},{int(g_ * 255)},"
-                           f"{int(b_ * 255)},0.55)")
-        return out
+    def _cum_matrix(sev_cols: list[tuple[str, set]]) -> None:
+        all_sev = set().union(*[d for _, d in sev_cols])
+        sizes = [b for b in _MASTER
+                 if any(k[0] == b and k[1] in all_sev for k in cell_stat)]
+        rows_lbl = [f"≥ {b}" for b in sizes]
+        text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in sev_cols])
+        recall = pd.DataFrame(float("nan"), index=rows_lbl,
+                              columns=[c for c, _ in sev_cols])
+        for i, sb in enumerate(sizes):
+            bigger = set(sizes[i:])
+            for cname, dset in sev_cols:
+                g = sum(v[0] for k, v in cell_stat.items()
+                        if k[0] in bigger and k[1] in dset)
+                t_ = sum(v[1] for k, v in cell_stat.items()
+                         if k[0] in bigger and k[1] in dset)
+                if t_:
+                    text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                    recall.loc[f"≥ {sb}", cname] = g / t_
 
-    st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
-    st.caption("Zelle = alle Schäden mit **Größe ≥ Zeile**, Schwere-Spalte kumuliert "
-               "**inkl. leichterer Stufen** (Leitern getrennt: Kratzer bzw. Delle) · "
-               "gefunden/gesamt (Recall). Spalten mit (alle) = ganze Leiter.")
+        def _bg(col: pd.Series) -> list[str]:
+            out = []
+            for i in col.index:
+                v = recall.loc[i, col.name]
+                if pd.isna(v):
+                    out.append("color: #bbb")
+                else:
+                    r_, g_, b_, _ = _cmap(v)
+                    out.append(f"background-color: rgba({int(r_ * 255)},"
+                               f"{int(g_ * 255)},{int(b_ * 255)},0.55)")
+            return out
+
+        st.dataframe(text.style.apply(_bg, axis=0), use_container_width=True)
+
+    col_k, col_de = st.columns(2)
+    with col_k:
+        st.markdown("**Kratzer** — Größe × Tiefe")
+        _cum_matrix([
+            ("bis oberflächlich", {"Kratzer oberflächlich"}),
+            ("bis Grundierung (alle)", {"Kratzer oberflächlich",
+                                        "Kratzer bis Grundierung"}),
+        ])
+    with col_de:
+        st.markdown("**Delle** — Größe × Lackschaden")
+        _cum_matrix([
+            ("bis ohne Lack", {"Delle ohne Lackschaden"}),
+            ("bis mit Lack (alle)", {"Delle ohne Lackschaden",
+                                     "Delle mit Lackschaden"}),
+        ])
+    st.caption("Zeilen kumuliert nach Größe (≥ Zeile, je Typ eigene Größen-Leiter), "
+               "Spalten kumuliert nach Schwere inkl. leichterer Stufen · "
+               "Zelle: gefunden/gesamt (Recall).")
