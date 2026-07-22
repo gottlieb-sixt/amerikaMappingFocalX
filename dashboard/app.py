@@ -542,7 +542,8 @@ elif mode.startswith("🔍"):
                                     for k, p_ in imgs])
                                 components.html(f"""
                                 <body style="margin:0">
-                                <div id="cyc" style="position:relative;cursor:pointer">
+                                <div id="cyc" style="position:relative;cursor:pointer;
+                                     padding-bottom:16px">
                                   <img id="im" style="width:100%;display:block;
                                        border-radius:0.5rem">
                                   <div id="chip" style="position:absolute;bottom:6px;
