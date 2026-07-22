@@ -904,10 +904,30 @@ else:
     col_s, col_d = st.columns(2)
     with col_s:
         st.subheader("Nach Größe")
-        st.dataframe(bucket_df(size_stat, SIZE_ORDER, "Größe")
-                     .style.format({"Recall": "{:.0%}"})
-                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1),
+        # Ordinale Leiter klein → groß; kumuliert = dieser Bucket und alles Größere
+        _ladder = [b for b in ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll",
+                               "2–4 Zoll", "> 4 Zoll"] if b in size_stat]
+        _rows = []
+        for i, b in enumerate(_ladder):
+            g, t_ = size_stat[b]
+            cg = sum(size_stat[x][0] for x in _ladder[i:])
+            ct = sum(size_stat[x][1] for x in _ladder[i:])
+            _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
+                          "ab hier (kum.)": f"{cg}/{ct}", "Recall (kum.)": cg / ct})
+        for b in ("komplett", "ohne Angabe"):
+            if b in size_stat:
+                g, t_ = size_stat[b]
+                _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
+                              "ab hier (kum.)": "–", "Recall (kum.)": None})
+        st.dataframe(pd.DataFrame(_rows)
+                     .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
+                                   na_rep="–")
+                     .background_gradient(subset=["Recall"], cmap="RdYlGn", vmin=0, vmax=1)
+                     .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
+                                          vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
+        st.caption("„kum." = dieser Bucket **und alle größeren** — z. B. Zeile "
+                   "„2–4 Zoll": Recall für alle Schäden ab 2 Zoll.")
     with col_d:
         st.subheader("Nach Schwere / Tiefe")
         st.dataframe(bucket_df(depth_stat, DEPTH_ORDER, "Schwere")
