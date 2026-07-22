@@ -926,8 +926,8 @@ else:
                      .background_gradient(subset=["Recall (kum.)"], cmap="RdYlGn",
                                           vmin=0, vmax=1),
                      use_container_width=True, hide_index=True)
-        st.caption("„kum." = dieser Bucket **und alle größeren** — z. B. Zeile "
-                   "„2–4 Zoll": Recall für alle Schäden ab 2 Zoll.")
+        st.caption("kum. = dieser Bucket **und alle größeren** — z. B. Zeile "
+                   "2–4 Zoll: Recall für alle Schäden ab 2 Zoll.")
     with col_d:
         st.subheader("Nach Schwere / Tiefe")
         st.dataframe(bucket_df(depth_stat, DEPTH_ORDER, "Schwere")
