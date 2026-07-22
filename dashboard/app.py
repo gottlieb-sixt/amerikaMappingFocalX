@@ -990,8 +990,7 @@ if mode.startswith("🧠"):
     _cm2 = _mpl2.colormaps["RdYlGn"]
     _ML = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll", "> 4 Zoll"]
     _gs = [b for b in _ML if any(k[0] == b for k in acc)]
-    _cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"}),
-             ("gesamt", {"gate", "other"})]
+    _cols = [("mit Damage Gate", {"gate"}), ("ohne Damage Gate", {"other"})]
     atext = pd.DataFrame("–", index=[f"≥ {b}" for b in _gs],
                          columns=[c for c, _ in _cols])
     arec = pd.DataFrame(float("nan"), index=[f"≥ {b}" for b in _gs],
