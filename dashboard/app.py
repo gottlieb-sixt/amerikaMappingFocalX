@@ -512,10 +512,42 @@ elif mode.startswith("🔍"):
                   else "⏰" if was_late
                   else "🚫" if excluded
                   else "✅" if rev and rev["verdict"].startswith("confirmed")
-                  else "✏️" if rev else "⬜")
+                  else "✏️" if rev else "🟡")
+        open_key = f"open_{sel}_{gt_key}"
+        reviewed_row = rev is not None or excluded
+        if reviewed_row and not st.session_state.get(open_key):
+            # Erledigt → kompakte Zeile mit Haken; "ändern" klappt wieder auf
+            with st.container(border=True, key=f"dmgc_{sel}_{gi}"):
+                cc = st.columns([11, 2])
+                if was_repaired:
+                    res = "🔧 repariert — automatisch ausgeschlossen"
+                elif was_late:
+                    res = "⏰ erst nach den Fotos erfasst — automatisch ausgeschlossen"
+                elif rev and rev["verdict"] == "excluded":
+                    res = f"🚫 ausgeschlossen ({rev.get('reason') or 'ohne Grund'})"
+                elif rev and rev["human"]:
+                    res = "gemappt: **" + ", ".join(rev["human"]) + "**"
+                else:
+                    res = "kein Match"
+                cc[0].markdown(f"{status} **#{'+#'.join(dmg_ids)}** · {t['part']} · "
+                               f"{t['damage_type']} · {t['side_attr']} — {res}")
+                if not (was_repaired or was_late):
+                    if cc[1].button("✏️ ändern", key=f"edit_{sel}_{gt_key}",
+                                    use_container_width=True):
+                        st.session_state[open_key] = True
+                        st.rerun()
+            continue
+
         if excluded:
             st.markdown(f"""<style>
             div[class*="st-key-dmg_{sel}_{gi}"] {{ opacity: 0.4; }}
+            </style>""", unsafe_allow_html=True)
+        elif rev is None:
+            st.markdown(f"""<style>
+            div[class*="st-key-dmg_{sel}_{gi}"] {{
+                background: #fffbe8; border-radius: 12px;
+                outline: 2px solid #f0d264; outline-offset: -2px;
+            }}
             </style>""", unsafe_allow_html=True)
 
         with st.container(border=True, key=f"dmg_{sel}_{gi}"):
@@ -640,6 +672,7 @@ elif mode.startswith("🔍"):
                                          disabled=is_current):
                                 save_review(r["checkin"], gt_key, list(keys), ai_keys,
                                             ai_available=ai_avail)
+                                st.session_state.pop(open_key, None)
                                 st.rerun()
             none_current = (rev is not None and not rev["human"]
                             and rev["verdict"] != "excluded")
@@ -649,6 +682,7 @@ elif mode.startswith("🔍"):
                              + (" (gewählt)" if none_current else ""),
                              key=f"none_{sel}_{gt_key}", disabled=none_current):
                     save_review(r["checkin"], gt_key, [], ai_keys, ai_available=ai_avail)
+                    st.session_state.pop(open_key, None)
                     st.rerun()
             with bcols[1]:
                 excl_reason = st.text_input("Grund", key=f"exclreason_{sel}_{gt_key}",
@@ -662,6 +696,7 @@ elif mode.startswith("🔍"):
                         save_review(r["checkin"], gt_key, [], ai_keys,
                                     ai_available=ai_avail, exclude=True,
                                     reason=excl_reason)
+                        st.session_state.pop(open_key, None)
                         st.rerun()
                 else:
                     if st.button("↩️ Wieder aufnehmen",
