@@ -839,9 +839,8 @@ else:
              "Gesamt": stat[b][1], "Recall": stat[b][0] / stat[b][1]}
             for b in order if b in stat])
 
-    col_s, col_d = st.columns(2)
-    with col_s:
-        st.subheader("Nach Größe")
+    st.subheader("Nach Größe")
+    if True:
         # Ordinale Leiter klein → groß; kumuliert = dieser Bucket und alles Größere
         _ladder = [b for b in ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll",
                                "2–4 Zoll", "> 4 Zoll"] if b in size_stat]
@@ -866,8 +865,8 @@ else:
                      use_container_width=True, hide_index=True)
         st.caption("kum. wächst mit der Größe: Zeile 2–4 Zoll = alle Schäden "
                    "**bis** 4 Zoll, unterste Zeile = alle Größen.")
-    with col_d:
-        st.subheader("Nach Schwere / Tiefe")
+    st.subheader("Nach Schwere / Tiefe")
+    if True:
         # Zwei Leitern, jeweils leicht → schwer; kumuliert = ab hier und schwerer
         _ladders = [
             [b for b in ["Kratzer oberflächlich", "Kratzer bis Grundierung"]
@@ -910,20 +909,20 @@ else:
         all_sev = set().union(*[d for _, d in sev_cols])
         sizes = [b for b in _MASTER
                  if any(k[0] == b and k[1] in all_sev for k in cell_stat)]
-        rows_lbl = [f"bis {b}" for b in sizes]
+        rows_lbl = [f"≥ {b}" for b in sizes]
         text = pd.DataFrame("–", index=rows_lbl, columns=[c for c, _ in sev_cols])
         recall = pd.DataFrame(float("nan"), index=rows_lbl,
                               columns=[c for c, _ in sev_cols])
         for i, sb in enumerate(sizes):
-            upto = set(sizes[:i + 1])
+            bigger = set(sizes[i:])
             for cname, dset in sev_cols:
                 g = sum(v[0] for k, v in cell_stat.items()
-                        if k[0] in upto and k[1] in dset)
+                        if k[0] in bigger and k[1] in dset)
                 t_ = sum(v[1] for k, v in cell_stat.items()
-                         if k[0] in upto and k[1] in dset)
+                         if k[0] in bigger and k[1] in dset)
                 if t_:
-                    text.loc[f"bis {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
-                    recall.loc[f"bis {sb}", cname] = g / t_
+                    text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
+                    recall.loc[f"≥ {sb}", cname] = g / t_
 
         def _bg(col: pd.Series) -> list[str]:
             out = []
@@ -954,6 +953,6 @@ else:
             ("bis mit Lack (alle)", {"Delle ohne Lackschaden",
                                      "Delle mit Lackschaden"}),
         ])
-    st.caption("Beide Richtungen wachsen kumuliert: Zeilen nach Größe (inkl. "
-               "kleinerer, je Typ eigene Leiter), Spalten nach Schwere (inkl. "
-               "leichterer) · Zelle: gefunden/gesamt (Recall) · unten rechts = alles.")
+    st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
+               "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
+               "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs.")
