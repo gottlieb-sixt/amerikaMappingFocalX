@@ -856,8 +856,9 @@ else:
             basis_damages += 1
             g, t_ = size_stat.get(sb, (0, 0)); size_stat[sb] = (g + found, t_ + 1)
             g, t_ = depth_stat.get(db_, (0, 0)); depth_stat[db_] = (g + found, t_ + 1)
-            g, t_ = cell_stat.get((sb, db_), (0, 0)); cell_stat[(sb, db_)] = (g + found, t_ + 1)
             gk = "gate" if srcs.get(ids[0]) == 10 else "other"
+            g, t_ = cell_stat.get((sb, db_, gk), (0, 0))
+            cell_stat[(sb, db_, gk)] = (g + found, t_ + 1)
             g, t_ = gate_stat.get((sb, gk), (0, 0)); gate_stat[(sb, gk)] = (g + found, t_ + 1)
 
     st.caption(f"{basis_damages} validierte Schäden aus {basis_cars} Autos")
@@ -906,7 +907,8 @@ else:
                "Damage Gate = automatisches Scan-Portal · ohne Gate = Agent-App & "
                "übrige Systeme · Zeilen kumuliert nach Größe (≥ Zeile), alle Schadenstypen.")
     st.subheader("Matrix: Größe × Schwere (beidseitig kumuliert)")
-    def _cum_matrix(sev_cols: list[tuple[str, set]], all_sizes: bool = False) -> None:
+    def _cum_matrix(sev_cols: list[tuple[str, set]], all_sizes: bool = False,
+                    sources: frozenset = frozenset({"gate", "other"})) -> None:
         all_sev = set().union(*[d for _, d in sev_cols])
         sizes = (_MASTER if all_sizes else
                  [b for b in _MASTER
@@ -919,9 +921,9 @@ else:
             bigger = set(sizes[i:])
             for cname, dset in sev_cols:
                 g = sum(v[0] for k, v in cell_stat.items()
-                        if k[0] in bigger and k[1] in dset)
+                        if k[0] in bigger and k[1] in dset and k[2] in sources)
                 t_ = sum(v[1] for k, v in cell_stat.items()
-                         if k[0] in bigger and k[1] in dset)
+                         if k[0] in bigger and k[1] in dset and k[2] in sources)
                 if t_:
                     text.loc[f"≥ {sb}", cname] = f"{g}/{t_} ({g / t_:.0%})"
                     recall.loc[f"≥ {sb}", cname] = g / t_
@@ -955,7 +957,25 @@ else:
             ("ohne + mit Lack (alle Dellen)",
              {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
         ], all_sizes=True)
+    _KRATZER_COLS = [
+        ("oberflächlich", {"Kratzer oberflächlich"}),
+        ("oberflächlich + Grundierung (alle Kratzer)",
+         {"Kratzer oberflächlich", "Kratzer bis Grundierung"}),
+    ]
+    _DELLE_COLS = [
+        ("ohne Lack", {"Delle ohne Lackschaden"}),
+        ("ohne + mit Lack (alle Dellen)",
+         {"Delle ohne Lackschaden", "Delle mit Lackschaden"}),
+    ]
+    col_k2, col_de2 = st.columns(2)
+    with col_k2:
+        st.markdown("**Kratzer ohne Damage Gate** — Größe × Tiefe")
+        _cum_matrix(_KRATZER_COLS, all_sizes=True, sources=frozenset({"other"}))
+    with col_de2:
+        st.markdown("**Delle ohne Damage Gate** — Größe × Lackschaden")
+        _cum_matrix(_DELLE_COLS, all_sizes=True, sources=frozenset({"other"}))
     st.caption("Zeilen kumuliert nach Größe (**≥ Zeile**, je Typ eigene Leiter), "
                "Spalten kumuliert nach Schwere (**inkl. leichterer**) · "
-               "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs.")
+               "Zelle: gefunden/gesamt (Recall) · oben rechts = alle des Typs. "
+               "Untere Reihe: nur menschlich erfasste Schäden (ohne Damage Gate).")
 
