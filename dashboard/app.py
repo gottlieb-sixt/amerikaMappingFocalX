@@ -847,15 +847,15 @@ else:
         _rows = []
         for i, b in enumerate(_ladder):
             g, t_ = size_stat[b]
-            cg = sum(size_stat[x][0] for x in _ladder[:i + 1])
-            ct = sum(size_stat[x][1] for x in _ladder[:i + 1])
+            cg = sum(size_stat[x][0] for x in _ladder[i:])
+            ct = sum(size_stat[x][1] for x in _ladder[i:])
             _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                          "kum. (inkl. kleinerer)": f"{cg}/{ct}", "Recall (kum.)": cg / ct})
+                          "ab hier u. größer (kum.)": f"{cg}/{ct}", "Recall (kum.)": cg / ct})
         for b in ("komplett", "ohne Angabe"):
             if b in size_stat:
                 g, t_ = size_stat[b]
                 _rows.append({"Größe": b, "Gefunden": g, "Gesamt": t_, "Recall": g / t_,
-                              "kum. (inkl. kleinerer)": "–", "Recall (kum.)": float("nan")})
+                              "ab hier u. größer (kum.)": "–", "Recall (kum.)": float("nan")})
         st.dataframe(pd.DataFrame(_rows)
                      .style.format({"Recall": "{:.0%}", "Recall (kum.)": "{:.0%}"},
                                    na_rep="–")
@@ -864,8 +864,8 @@ else:
                                           vmin=0, vmax=1)
                      .highlight_null(props="background-color: transparent; color: #bbb;"),
                      use_container_width=True, hide_index=True)
-        st.caption("kum. wächst mit der Größe: Zeile 2–4 Zoll = alle Schäden "
-                   "**bis** 4 Zoll, unterste Zeile = alle Größen.")
+        st.caption("kum. = dieser Bucket **und alle größeren**: Zeile 2–4 Zoll = "
+                   "Recall für alle Schäden ab 2 Zoll, oberste Zeile = alle Größen.")
     st.subheader("Nach Schwere / Tiefe")
     if True:
         # Zwei Leitern, jeweils leicht → schwer; kumuliert = ab hier und schwerer
