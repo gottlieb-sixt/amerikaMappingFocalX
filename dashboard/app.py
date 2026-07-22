@@ -937,43 +937,14 @@ if mode.startswith("🧠"):
     nonmap = counts["confirmed_empty"] + counts["rejected"]
     prec = counts["confirmed"] / ai_match if ai_match else None
 
-    st.subheader(f"Mappbare Schäden — ein Match existiert ({mappable})")
-    st.caption("Das ist die eigentlich harte Aufgabe: Der Mensch hat einen "
-               "passenden FocalX-Fund gefunden — hat die KI ihn auch?")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Exakt richtig gemappt",
-              f"{counts['confirmed']}/{mappable}"
-              + (f" ({counts['confirmed'] / mappable:.0%})" if mappable else ""))
-    c2.metric("Irgendein Match vorgeschlagen",
-              f"{counts['confirmed'] + counts['corrected']}/{mappable}"
-              + (f" ({(counts['confirmed'] + counts['corrected']) / mappable:.0%})"
-                 if mappable else ""),
-              help="Exakt richtig + falsches Finding gewählt")
-    c3.metric("Übersehen (KI: kein Match)",
-              f"{counts['human_added']}/{mappable}"
-              + (f" ({counts['human_added'] / mappable:.0%})" if mappable else ""))
-
-    st.subheader(f"Nicht mappbare Schäden — kein Match existiert ({nonmap})")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Korrekt: kein Match",
-              f"{counts['confirmed_empty']}/{nonmap}"
-              + (f" ({counts['confirmed_empty'] / nonmap:.0%})" if nonmap else ""))
-    c2.metric("Fälschlich gemappt",
-              f"{counts['rejected']}/{nonmap}"
-              + (f" ({counts['rejected'] / nonmap:.0%})" if nonmap else ""))
-    c3.metric("Präzision der KI-Matches", f"{prec:.0%}" if prec is not None else "–",
-              help="Wenn die KI einen Match vorschlug: wie oft war es exakt der richtige Fund?")
-    st.caption(f"Zur Einordnung: Gesamt-Genauigkeit über alle {tot} Schäden = "
-               f"{ok_total / tot:.0%} — die Zahl ist aber von den leichten "
-               "Nein-Fällen dominiert; die Gruppen oben sind aussagekräftiger.")
-
     st.subheader("Wie gehen die KI-Urteile aus?")
     import altair as alt
 
     def _stack(title: str, segs: list[tuple[str, int, str]]) -> None:
-        df = pd.DataFrame([{"Ausgang": f"{lbl} ({n})", "n": n, "farbe": col, "o": i}
+        total = sum(n for _, n, _c in segs)
+        df = pd.DataFrame([{"Ausgang": f"{lbl} ({n})", "n": n, "farbe": col, "o": i,
+                            "pct": f"{n / total:.0%}"}
                            for i, (lbl, n, col) in enumerate(segs) if n > 0])
-        total = int(df["n"].sum())
         bars = alt.Chart(df).mark_bar(height=34, cornerRadius=3).encode(
             x=alt.X("n:Q", title=None, axis=None,
                     scale=alt.Scale(domain=[0, total])),
@@ -992,7 +963,7 @@ if mode.startswith("🧠"):
             x=alt.X("n:Q", stack="zero", scale=alt.Scale(domain=[0, total])),
             detail="Ausgang:N",
             order=alt.Order("o:Q"),
-            text=alt.condition("datum.n >= 3", alt.Text("n:Q"), alt.value("")),
+            text=alt.condition("datum.n >= 3", alt.Text("pct:N"), alt.value("")),
         )
         st.markdown(f"**{title}**")
         st.altair_chart((bars + labels).properties(height=48),
@@ -1007,8 +978,10 @@ if mode.startswith("🧠"):
         ("korrekt: kein Match", counts["confirmed_empty"], "#8fd0a0"),
         ("fälschlich gemappt", counts["rejected"], "#d0433b"),
     ])
-    st.caption("Lesart: Die KI irrt fast nur in eine Richtung — sie übersieht Matches "
-               "(zu streng), statt falsche zu erfinden.")
+    st.caption(f"Präzision der KI-Matches: **{prec:.0%}** (wenn die KI mappte, war es "
+               f"so oft exakt der richtige Fund) · Gesamt-Genauigkeit über alle {tot} "
+               f"Schäden: {ok_total / tot:.0%}. Lesart: Die KI irrt fast nur in eine "
+               "Richtung — sie übersieht Matches (zu streng), statt falsche zu erfinden.")
 
     st.subheader("Genauigkeit nach Größe × Erfassungsquelle (kumuliert)")
     import matplotlib as _mpl2
