@@ -1,0 +1,11 @@
+{
+  "name": "v03-inclusive-all",
+  "title": "v03 — inklusiver Judge + alle Kandidaten",
+  "description": "Zwei Hebel gegen die v01-Schwäche (zu strenger Judge, 48 % Recall auf mappbaren): (1) Prompt entschärft die Sub-Location-Strenge — vermutete Feinposition innerhalb desselben Panels ist kein High-Ausschluss mehr, und die mitgelieferten FocalX-Positionslabels (Seite/Rad/Region) haben Vorrang vor dem visuellen Eindruck aus dem Close-up; explizit auf die menschliche Match-Kalibrierung geankert. (2) candidates=all legt dem Judge ALLE Finding-Cluster vor (nicht nur die enge Vorauswahl), da 11 wahre Findings v01 nie gezeigt wurden. Gemini 3.1 Pro, Temp 0, 4 GT-/2 Cand-Bilder. Cluster + gt_keys bleiben eingefroren; nur das Judge-Urteil variiert.",
+  "model": "vertex_ai/gemini-3.1-pro",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "all"
+}
