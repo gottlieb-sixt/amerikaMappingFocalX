@@ -1,9 +1,9 @@
 {
   "description": "Human-validated gold standard: SHARK DB damage → FocalX finding keys ([] = not found by FocalX). Source: manual review in dashboard.",
-  "exported_at": "2026-07-22 14:38:36",
+  "exported_at": "2026-07-28 12:05:07",
   "cars_total": 20,
   "entries_total": 160,
-  "entries_mapped": 68,
+  "entries_mapped": 48,
   "cars": [
     {
       "checkin": "FL-07ELXT__eee9604b",
@@ -122,22 +122,13 @@
           "severity": "< 2 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "MID_RIGHT",
-          "finding_keys": [
-            "F9"
-          ],
-          "findings": [
-            {
-              "key": "F9",
-              "part": "door-front-left",
-              "type": "dent",
-              "position": "aleft-front"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 16:49:16"
+          "reviewed_at": "2026-07-27 17:46:06"
         },
         {
           "gt_key": "38465075",
@@ -150,24 +141,13 @@
           "severity": "2-4 inch superficial",
           "projection": "PASSENGER_SIDE",
           "segment": "MID_MID",
-          "finding_keys": [
-            "F7"
-          ],
-          "findings": [
-            {
-              "key": "F7",
-              "part": "door-rear-left",
-              "type": "scuffed",
-              "position": "aleft-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
-          "ai_proposal_at_review": [
-            "F2"
-          ],
+          "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 16:50:05"
+          "reviewed_at": "2026-07-27 17:56:42"
         },
         {
           "gt_key": "38465076",
@@ -180,24 +160,13 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_LEFT",
-          "finding_keys": [
-            "F11"
-          ],
-          "findings": [
-            {
-              "key": "F11",
-              "part": "fender-rear-left",
-              "type": "scuffed",
-              "position": "left-rear"
-            }
-          ],
-          "excluded": false,
-          "exclude_reason": null,
-          "ai_proposal_at_review": [
-            "F11"
-          ],
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "double schaden ",
+          "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 16:47:53"
+          "reviewed_at": "2026-07-27 17:45:08"
         },
         {
           "gt_key": "38778221",
@@ -267,22 +236,13 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "DRIVER_SIDE",
           "segment": "BOTTOM_RIGHT",
-          "finding_keys": [
-            "F6"
-          ],
-          "findings": [
-            {
-              "key": "F6",
-              "part": "wheel",
-              "type": "scuffed",
-              "position": "afront-right-wheel"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 16:40:43"
+          "reviewed_at": "2026-07-27 17:36:57"
         },
         {
           "gt_key": "39178140",
@@ -295,24 +255,15 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_LEFT",
-          "finding_keys": [
-            "F3"
-          ],
-          "findings": [
-            {
-              "key": "F3",
-              "part": "wheel",
-              "type": "scratched except glass",
-              "position": "arear-right-wheel"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [
             "F3"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 18:37:54"
+          "reviewed_at": "2026-07-27 17:37:24"
         },
         {
           "gt_key": "42236073",
@@ -353,22 +304,13 @@
           "severity": "> 4 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_RIGHT",
-          "finding_keys": [
-            "F8"
-          ],
-          "findings": [
-            {
-              "key": "F8",
-              "part": "wheel-rear-left",
-              "type": "curbrash",
-              "position": "left-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
-          "ai_available": false,
-          "reviewed_at": "2026-07-21 17:28:46"
+          "ai_available": true,
+          "reviewed_at": "2026-07-27 17:59:51"
         },
         {
           "gt_key": "37394322",
@@ -400,22 +342,13 @@
           "severity": "> 4 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_LEFT",
-          "finding_keys": [
-            "F8"
-          ],
-          "findings": [
-            {
-              "key": "F8",
-              "part": "wheel-rear-left",
-              "type": "curbrash",
-              "position": "left-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 17:52:56"
+          "reviewed_at": "2026-07-27 18:01:50"
         },
         {
           "gt_key": "37494153",
@@ -589,24 +522,15 @@
           "severity": "> 1 inch (without paint damage)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_RIGHT",
-          "finding_keys": [
-            "F5"
-          ],
-          "findings": [
-            {
-              "key": "F5",
-              "part": "fender-rear-left",
-              "type": "dent",
-              "position": "left-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [
             "F5"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 18:49:22"
+          "reviewed_at": "2026-07-27 18:12:43"
         },
         {
           "gt_key": "37426772+38570956",
@@ -639,22 +563,13 @@
           "severity": "> 1 inch (without paint damage)",
           "projection": "PASSENGER_SIDE",
           "segment": "MID_LEFT",
-          "finding_keys": [
-            "F1"
-          ],
-          "findings": [
-            {
-              "key": "F1",
-              "part": "door-front-right",
-              "type": "scuffed",
-              "position": "aright-front"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 18:45:10"
+          "reviewed_at": "2026-07-27 18:08:33"
         },
         {
           "gt_key": "37463770",
@@ -667,22 +582,13 @@
           "severity": "up to 1 inch (without paint damage)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_RIGHT",
-          "finding_keys": [
-            "F2"
-          ],
-          "findings": [
-            {
-              "key": "F2",
-              "part": "rear-bumper",
-              "type": "scratch",
-              "position": "right-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 18:49:14"
+          "reviewed_at": "2026-07-27 18:09:31"
         },
         {
           "gt_key": "37648958+39363349",
@@ -1008,22 +914,13 @@
           "severity": "> 1 inch (without paint damage)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_RIGHT",
-          "finding_keys": [
-            "F15"
-          ],
-          "findings": [
-            {
-              "key": "F15",
-              "part": "bumper",
-              "type": "scuffed",
-              "position": "afront-right"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 19:01:44"
+          "reviewed_at": "2026-07-27 18:17:40"
         },
         {
           "gt_key": "39672362+39700997",
@@ -1274,24 +1171,15 @@
           "severity": "> 1 inch (without paint damage)",
           "projection": "PASSENGER_SIDE",
           "segment": "MID_MID",
-          "finding_keys": [
-            "F12"
-          ],
-          "findings": [
-            {
-              "key": "F12",
-              "part": "door-front-right",
-              "type": "dent",
-              "position": "front-right"
-            }
-          ],
-          "excluded": false,
-          "exclude_reason": null,
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "doppelter schaden ",
           "ai_proposal_at_review": [
             "F12"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 17:32:14"
+          "reviewed_at": "2026-07-27 18:40:22"
         },
         {
           "gt_key": "38215436",
@@ -1379,22 +1267,13 @@
           "severity": "Not needed",
           "projection": "DRIVER_SIDE",
           "segment": "BOTTOM_LEFT",
-          "finding_keys": [
-            "F4"
-          ],
-          "findings": [
-            {
-              "key": "F4",
-              "part": "wheel-rear-right",
-              "type": "scratch",
-              "position": "right-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 10:17:27"
+          "reviewed_at": "2026-07-27 18:52:27"
         },
         {
           "gt_key": "34670435",
@@ -1455,21 +1334,14 @@
           "projection": "BACK_SIDE",
           "segment": "MID_MID",
           "finding_keys": [
-            "F7",
-            "F9"
+            "F3"
           ],
           "findings": [
             {
-              "key": "F7",
+              "key": "F3",
               "part": "rear-bumper",
-              "type": "scratch",
-              "position": "rear-left"
-            },
-            {
-              "key": "F9",
-              "part": "rear-bumper",
-              "type": "scratch",
-              "position": "rear"
+              "type": "dent",
+              "position": "rear-right"
             }
           ],
           "excluded": false,
@@ -1479,7 +1351,7 @@
             "F9"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 10:16:57"
+          "reviewed_at": "2026-07-27 18:51:52"
         },
         {
           "gt_key": "37333709",
@@ -1492,22 +1364,13 @@
           "severity": "> 4 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_RIGHT",
-          "finding_keys": [
-            "F4"
-          ],
-          "findings": [
-            {
-              "key": "F4",
-              "part": "wheel-rear-right",
-              "type": "scratch",
-              "position": "right-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 19:10:44"
+          "reviewed_at": "2026-07-27 18:48:44"
         },
         {
           "gt_key": "38286770",
@@ -1550,29 +1413,13 @@
           "severity": "up to 0.5 inch (without paint damage)",
           "projection": "BACK_SIDE",
           "segment": "MID_MID",
-          "finding_keys": [
-            "F7",
-            "F9"
-          ],
-          "findings": [
-            {
-              "key": "F7",
-              "part": "rear-bumper",
-              "type": "scratch",
-              "position": "rear-left"
-            },
-            {
-              "key": "F9",
-              "part": "rear-bumper",
-              "type": "scratch",
-              "position": "rear"
-            }
-          ],
-          "excluded": false,
-          "exclude_reason": null,
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
+          "exclude_reason": "falsches auto ",
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-21 19:11:30"
+          "reviewed_at": "2026-07-27 18:51:00"
         },
         {
           "gt_key": "41222817",
@@ -1871,12 +1718,19 @@
           "projection": "PASSENGER_SIDE",
           "segment": "MID_LEFT",
           "finding_keys": [
-            "F4"
+            "F10",
+            "F3"
           ],
           "findings": [
             {
-              "key": "F4",
-              "part": "moulding-fender-front-right",
+              "key": "F10",
+              "part": "rear-bumper",
+              "type": "scratch",
+              "position": "rear-right"
+            },
+            {
+              "key": "F3",
+              "part": "rear-bumper",
               "type": "scratch",
               "position": "right-rear"
             }
@@ -1887,7 +1741,7 @@
             "F4"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 10:52:57"
+          "reviewed_at": "2026-07-28 09:57:38"
         },
         {
           "gt_key": "39763070",
@@ -2050,13 +1904,22 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_MID",
-          "finding_keys": [],
-          "findings": [],
+          "finding_keys": [
+            "F1"
+          ],
+          "findings": [
+            {
+              "key": "F1",
+              "part": "door-front-left",
+              "type": "chipped paneledge",
+              "position": "aleft-rear"
+            }
+          ],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 11:30:40"
+          "reviewed_at": "2026-07-28 10:11:10"
         },
         {
           "gt_key": "37008181",
@@ -2194,22 +2057,13 @@
           "severity": "> 4 inch superficial",
           "projection": "DRIVER_SIDE",
           "segment": "BOTTOM_MID",
-          "finding_keys": [
-            "F14"
-          ],
-          "findings": [
-            {
-              "key": "F14",
-              "part": "door-rear-right",
-              "type": "dent",
-              "position": "rear-right"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 11:38:55"
+          "reviewed_at": "2026-07-28 10:22:14"
         },
         {
           "gt_key": "38564360",
@@ -2665,14 +2519,14 @@
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_LEFT",
           "finding_keys": [
-            "F11"
+            "F7"
           ],
           "findings": [
             {
-              "key": "F11",
-              "part": "wheel-front-right",
-              "type": "curbrash",
-              "position": "front-right"
+              "key": "F7",
+              "part": "wheel",
+              "type": "scratch",
+              "position": "arear-right-wheel"
             }
           ],
           "excluded": false,
@@ -2681,7 +2535,7 @@
             "F7"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 12:06:31"
+          "reviewed_at": "2026-07-28 11:41:10"
         }
       ]
     },
@@ -2740,22 +2594,13 @@
           "severity": "> 1 inch (without paint damage)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_RIGHT",
-          "finding_keys": [
-            "F6"
-          ],
-          "findings": [
-            {
-              "key": "F6",
-              "part": "door-front-right",
-              "type": "scuffed",
-              "position": "aright-front"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 13:10:50"
+          "reviewed_at": "2026-07-28 11:42:31"
         },
         {
           "gt_key": "39039356",
@@ -3108,24 +2953,15 @@
           "severity": "up to 1 inch (without paint damage)",
           "projection": "PASSENGER_SIDE",
           "segment": "MID_LEFT",
-          "finding_keys": [
-            "F10"
-          ],
-          "findings": [
-            {
-              "key": "F10",
-              "part": "fender-rear-left",
-              "type": "scratch",
-              "position": "rear-left"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [
             "F10"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 13:28:23"
+          "reviewed_at": "2026-07-28 11:44:41"
         },
         {
           "gt_key": "41394225",
@@ -3157,29 +2993,13 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_LEFT",
-          "finding_keys": [
-            "F4",
-            "F6"
-          ],
-          "findings": [
-            {
-              "key": "F4",
-              "part": "door-rear-left",
-              "type": "scratched except glass",
-              "position": "arear-left-wheel"
-            },
-            {
-              "key": "F6",
-              "part": "door-rear-left",
-              "type": "scratched except glass",
-              "position": "aleft-rear"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 13:29:48"
+          "reviewed_at": "2026-07-28 11:53:06"
         },
         {
           "gt_key": "41679274",
@@ -3691,32 +3511,16 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "DRIVER_SIDE",
           "segment": "MID_RIGHT",
-          "finding_keys": [
-            "F5",
-            "F7"
-          ],
-          "findings": [
-            {
-              "key": "F5",
-              "part": "trunk-cover",
-              "type": "scratch",
-              "position": "rear"
-            },
-            {
-              "key": "F7",
-              "part": "trunk-cover",
-              "type": "scratch",
-              "position": "rear-left"
-            }
-          ],
-          "excluded": false,
+          "finding_keys": [],
+          "findings": [],
+          "excluded": true,
           "exclude_reason": null,
           "ai_proposal_at_review": [
             "F5",
             "F7"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 14:28:41"
+          "reviewed_at": "2026-07-28 12:00:23"
         },
         {
           "gt_key": "37013091",
@@ -3849,22 +3653,13 @@
           "severity": "2-4 inch (down to primer)",
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_RIGHT",
-          "finding_keys": [
-            "F3"
-          ],
-          "findings": [
-            {
-              "key": "F3",
-              "part": "wheel",
-              "type": "scratched except glass",
-              "position": "arear-left-wheel"
-            }
-          ],
+          "finding_keys": [],
+          "findings": [],
           "excluded": false,
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 14:32:58"
+          "reviewed_at": "2026-07-28 12:01:50"
         },
         {
           "gt_key": "38813966",
@@ -3892,7 +3687,7 @@
           "exclude_reason": null,
           "ai_proposal_at_review": [],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 14:31:20"
+          "reviewed_at": "2026-07-28 12:02:07"
         },
         {
           "gt_key": "38896788",
@@ -3936,14 +3731,14 @@
           "projection": "PASSENGER_SIDE",
           "segment": "BOTTOM_LEFT",
           "finding_keys": [
-            "F3"
+            "F15"
           ],
           "findings": [
             {
-              "key": "F3",
-              "part": "wheel",
+              "key": "F15",
+              "part": "wheel-rear-right",
               "type": "scratched except glass",
-              "position": "arear-left-wheel"
+              "position": "right-rear"
             }
           ],
           "excluded": false,
@@ -3952,7 +3747,7 @@
             "F15"
           ],
           "ai_available": true,
-          "reviewed_at": "2026-07-22 14:33:15"
+          "reviewed_at": "2026-07-28 12:02:20"
         },
         {
           "gt_key": "39140996",
