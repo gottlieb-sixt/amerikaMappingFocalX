@@ -29,12 +29,16 @@ DEFAULT_PROCESS_ID = "7BAQMZBAHUYK"
 POLL_INTERVAL_S = 20
 POLL_TIMEOUT_S = 1800
 
-# Core walk-around labels confirmed working against process 7BAQMZBAHUYK.
+# Walk-around-Labels aus v1/v2. Nur Labels mit `frame_url` im custom_data-Katalog
+# werden von der AI ausgewertet — hier die ersten 8. Die uebrigen nimmt die API zwar
+# an, sie erzeugen aber keine Orientierung (verifiziert 2026-07-28).
 VALID_WALKAROUND = [
-    "front", "afront", "front-left", "afront-left", "afront-left-wheel",
-    "aleft-front", "aleft-rear", "left-rear", "arear-left-wheel", "rear-left",
-    "rear", "rear-right", "arear-right-wheel", "right-rear", "abcright-rear",
-    "aright-front", "afront-right-wheel", "right-front", "front-right",
+    "front", "rear", "front-left", "front-right",
+    "rear-left", "rear-right", "left-rear", "right-rear",
+    # ohne frame_url — werden still ignoriert:
+    "afront", "afront-left", "afront-right", "aleft-front", "aleft-rear",
+    "aright-front", "abcright-rear", "afront-left-wheel", "afront-right-wheel",
+    "arear-left-wheel", "arear-right-wheel",
 ]
 
 
@@ -69,6 +73,7 @@ class FocalxClient:
 
     def valid_labels(self) -> list[str]:
         """All position labels the tenant defines (from user-profile custom_data)."""
+        self._ensure_base()  # ohne Token liefert die Profil-URL 401
         prof = json.loads(self._get(f"https://{DOMAIN}/api/v1/customer/user-profile/"))
         seen: list[str] = []
         for entry in prof.get("custom_data", []):
@@ -149,6 +154,9 @@ class FocalxClient:
     def _upload(self, insp: str, position: str, path: Path) -> None:
         base = self._ensure_base()
         img = path.read_bytes()
+        # WICHTIG: Die AI leitet die Ansicht aus dem DATEINAMEN ab, nicht aus `position`
+        # (Experiment 2026-07-28: position="front-left" + Datei "custom_afront-left.jpg"
+        # ⇒ leerer Report). Der Slot-Name muss also im Dateinamen stehen.
         remote = f"{insp}_{position}.jpg"
         body = json.dumps({"images": [{"name": remote, "position": position}]})
         text = self._post(f"{base}/api/v2/service/inspections/{insp}/signedurls/", body)

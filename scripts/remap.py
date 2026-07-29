@@ -3,8 +3,9 @@
 vorhandene Ergebnisse an — ohne FocalX neu laufen zu lassen. Nutzt gespeicherte
 Findings + Close-ups + Ground Truth.
 
-  python3 scripts/remap.py            # alle data/results/*.json neu mappen
-  python3 scripts/remap.py FL-07ELXT  # nur bestimmte
+  python3 scripts/remap.py                     # alle data/results/*.json neu mappen
+  python3 scripts/remap.py FL-07ELXT           # nur bestimmte
+  python3 scripts/remap.py --run v3 FL-07ELXT  # aus einem versionierten Run
 """
 from __future__ import annotations
 
@@ -51,9 +52,18 @@ def main():
     llm_key = _env("LLM_GW_API_KEY")
     if not llm_key:
         print("WARN: kein LLM_GW_API_KEY — nur Heuristik-Fallback")
-    files = sorted(RESULTS.glob("*.json"))
-    if sys.argv[1:]:
-        files = [f for f in files if any(a in f.name for a in sys.argv[1:])]
+    argv = sys.argv[1:]
+    results = RESULTS
+    if "--run" in argv:
+        run_id = argv[argv.index("--run") + 1]
+        argv = [a for a in argv if a not in ("--run", run_id)]
+        from eval import runs as runs_mod
+        results = runs_mod.results_dir(run_id)
+        print(f"Run: {run_id} → {results.relative_to(ROOT)}")
+    filters = [a for a in argv if not a.startswith("--")]
+    files = sorted(results.glob("*.json"))
+    if filters:
+        files = [f for f in files if any(a in f.name for a in filters)]
     for f in files:
         print(f"=== {f.stem} ===")
         remap(f, llm_key)

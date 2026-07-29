@@ -14,6 +14,7 @@ Everything below the gate goes to the LLM judge (judge.py) as "ambiguous".
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 MIN_SCORE = 5
@@ -61,6 +62,14 @@ LABEL_SIDE_ZONE = {
     "aright-front": ("right", "front"), "right-front": ("right", "front"),
     "afront-right": ("right", "front"),
     "afront-right-wheel": ("right", "front"), "front-right": ("right", "front"),
+    # Slots des 19-Positionen-Walkarounds, die in den ersten Runs fehlten.
+    "arear-left-bumper": ("rear", "left"),      # DIAGONAL_REAR_LEFT
+    "arear-right-bumper": ("rear", "right"),    # DIAGONAL_REAR_RIGHT
+    "arear-left": ("left", "rear"),             # LEFT_SIDE_REAR_FENDER
+    "arear-right": ("right", "rear"),           # RIGHT_SIDE_REAR_FENDER
+    "afront-bonnet-windshield": ("front", None),  # FRONT_BONNET
+    "front-left-fender": ("left", "front"),     # FRONT_LEFT_FENDER
+    "abcfront-right-fender": ("right", "front"),  # FRONT_RIGHT_FENDER
 }
 
 PROJECTION_SIDE = {
@@ -115,8 +124,22 @@ def front_rear(raw: str | None) -> str | None:
     return None
 
 
+def normalize_label(position: str) -> str:
+    """Positionslabel auf die Form der Tabelle bringen.
+
+    Ab Run v3 heißen die FocalX-Slots `custom_<label>` (teils mit Zähler-Suffix,
+    z. B. `custom_aleft-front-1`). Ohne diese Normalisierung liefe jede Position
+    ins Leere → Seite unbekannt → jedes Finding gilt als geografisch plausibel."""
+    p = (position or "").strip().lower()
+    if p.endswith(".jpg"):
+        p = p[:-4]
+    if p.startswith("custom_"):
+        p = p[len("custom_"):]
+    return re.sub(r"-\d+$", "", p)
+
+
 def finding_side_zone(position: str) -> tuple[str | None, str | None]:
-    return LABEL_SIDE_ZONE.get(position, (None, None))
+    return LABEL_SIDE_ZONE.get(normalize_label(position), (None, None))
 
 
 def truth_side(t: Truth) -> str | None:

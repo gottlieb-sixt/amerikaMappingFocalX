@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -30,28 +31,31 @@ GT_PHOTOS = ROOT / "data" / "gt_photos"
 GT = ROOT / "data" / "ground_truth"
 RESULTS = ROOT / "data" / "results"
 
-# Check-in-Positionsname → kanonisches FocalX-Label (LHD: left = Fahrerseite).
-POSITION_MAP = {
-    "EXTERIOR_FRONT_STRAIGHT": "front",
-    "FRONT_BONNET": "afront",
-    "DIAGONAL_FRONT_LEFT": "front-left",
-    "FRONT_LEFT_FENDER": "afront-left",
-    "TYRE_RIM_FRONT_LEFT": "afront-left-wheel",
-    "LEFT_SIDE_FRONT_DOOR": "aleft-front",
-    "LEFT_SIDE_REAR_DOOR": "aleft-rear",
-    "LEFT_SIDE_REAR_FENDER": "left-rear",
-    "TYRE_RIM_REAR_LEFT": "arear-left-wheel",
-    "DIAGONAL_REAR_LEFT": "rear-left",
-    "EXTERIOR_REAR_STRAIGHT": "rear",
-    "DIAGONAL_REAR_RIGHT": "rear-right",
-    "TYRE_RIM_REAR_RIGHT": "arear-right-wheel",
-    "RIGHT_SIDE_REAR_FENDER": "right-rear",
-    "RIGHT_SIDE_REAR_DOOR": "abcright-rear",
-    "RIGHT_SIDE_FRONT_DOOR": "aright-front",
-    "TYRE_RIM_FRONT_RIGHT": "afront-right-wheel",
-    "FRONT_RIGHT_FENDER": "afront-right",
-    "DIAGONAL_FRONT_RIGHT": "front-right",
-}
+# Dateiname des Check-in-Fotos (ohne .jpg) → FocalX-Positionslabel.
+# Konvention der FocalX-Referenz (upload.py): position = Dateiname ohne Endung,
+# hochgeladen als {inspection}_{dateiname}. Die Rohfotos in data/raw/ tragen die
+# custom_-Slotnamen, daher ist die Abbildung hier die Identität.
+POSITION_MAP = {k: k for k in (
+    "custom_afront",                    # EXTERIOR_FRONT_STRAIGHT
+    "custom_arear",                     # EXTERIOR_REAR_STRAIGHT
+    "custom_afront-left",               # DIAGONAL_FRONT_LEFT
+    "custom_afront-right",              # DIAGONAL_FRONT_RIGHT
+    "custom_arear-left-bumper",         # DIAGONAL_REAR_LEFT
+    "custom_arear-right-bumper",        # DIAGONAL_REAR_RIGHT
+    "custom_arear-left",                # LEFT_SIDE_REAR_FENDER
+    "custom_arear-right",               # RIGHT_SIDE_REAR_FENDER
+    "custom_afront-bonnet-windshield",  # FRONT_BONNET
+    "custom_front-left-fender",         # FRONT_LEFT_FENDER
+    "custom_abcfront-right-fender",     # FRONT_RIGHT_FENDER
+    "custom_aleft-front-1",             # LEFT_SIDE_FRONT_DOOR
+    "custom_aleft-rear",                # LEFT_SIDE_REAR_DOOR
+    "custom_aright-front-1",            # RIGHT_SIDE_FRONT_DOOR
+    "custom_abcright-rear",             # RIGHT_SIDE_REAR_DOOR
+    "custom_afront-left-wheel",         # TYRE_RIM_FRONT_LEFT
+    "custom_afront-right-wheel",        # TYRE_RIM_FRONT_RIGHT
+    "custom_arear-left-wheel",          # TYRE_RIM_REAR_LEFT
+    "custom_arear-right-wheel",         # TYRE_RIM_REAR_RIGHT
+)}
 
 
 def _env(name: str) -> str:
@@ -172,22 +176,54 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str,
     (RESULTS / f"{name}.json").write_text(json.dumps(report, indent=2))
     if report.get("mapping_pending"):
         print(f"  → GESPEICHERT (Mapping ausstehend): {len(findings)} Findings · "
-              f"data/results/{name}.json", flush=True)
+              f"{RESULTS.relative_to(ROOT)}/{name}.json", flush=True)
     else:
         rec = f"{report['recall']:.0%}" if report["recall"] is not None else "– (0 GT)"
         ph = report.get("physical") or {}
         prec = f"{ph['recall']:.0%}" if ph.get("recall") is not None else "–"
         print(f"  → Recall {rec} (Zeilen) · {prec} (physisch: {ph.get('gt_found')}/{ph.get('gt_total')}) · "
-              f"{ph.get('extras_unique')} unique Extras · data/results/{name}.json", flush=True)
+              f"{ph.get('extras_unique')} unique Extras · {RESULTS.relative_to(ROOT)}/{name}.json", flush=True)
     return report
 
 
+def locate_pictograms(checkin: str, run_id: str) -> None:
+    """Findings des gerade fertigen Autos auf die Piktogramme setzen.
+
+    Als Subprozess, damit ein Fehler in der Lokalisierung nie die Warteschlange
+    der übrigen Autos abbricht. Bereits lokalisierte Schäden überspringt das
+    Skript selbst."""
+    plate = checkin.split("__")[0]
+    # Braucht Pillow → das venv, nicht das stdlib-only System-Python.
+    venv_py = ROOT / ".venv" / "bin" / "python"
+    py = str(venv_py) if venv_py.exists() else sys.executable
+    cmd = [py, "-u", str(ROOT / "scripts" / "locate_pictograms.py"),
+           "--source", "focalx", plate]
+    if run_id:
+        cmd += ["--run", run_id]
+    print(f"  Piktogramme für {plate} …", flush=True)
+    try:
+        subprocess.run(cmd, cwd=str(ROOT), check=False)
+    except Exception as e:
+        print(f"  Piktogramm-Lokalisierung fehlgeschlagen: {e}", flush=True)
+
+
 def main() -> None:
+    global RESULTS
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     limit = 0
     if "--limit" in sys.argv:
         limit = int(sys.argv[sys.argv.index("--limit") + 1])
         args = [a for a in args if a != str(limit)]
+    # --run <id>: Ergebnisse in einen versionierten Run schreiben (z. B. v2),
+    # ohne den v1-Stand (data/results) zu überschreiben. Ohne Flag → v1.
+    run_id = ""
+    if "--run" in sys.argv:
+        run_id = sys.argv[sys.argv.index("--run") + 1]
+        args = [a for a in args if a != run_id]
+        from . import runs as runs_mod
+        runs_mod.ensure_run(run_id)
+        RESULTS = runs_mod.results_dir(run_id)
+        print(f"Ziel-Run: {run_id} → {RESULTS.relative_to(ROOT)}", flush=True)
     dirs = sorted(d for d in RAW.glob("*/*/") if d.is_dir())
     if args:
         dirs = [d for d in dirs
@@ -205,17 +241,24 @@ def main() -> None:
     client = FocalxClient(_env("FOCALX_PRECISE_USERNAME"), _env("FOCALX_PRECISE_PASSWORD"))
     llm_key = _env("LLM_GW_API_KEY")
     do_mapping = "--inspect-only" not in sys.argv
+    # Ohne Mapping fehlen die physischen Cluster — dann wären die Piktogramme
+    # pro Einzel-Finding statt pro Schaden und müssten später neu gemacht werden.
+    with_pictograms = do_mapping and "--no-pictograms" not in sys.argv
     for d in dirs:
         # Bis zu 3 Versuche pro Check-in — transiente Netz-/DNS-Aussetzer
         # dürfen nicht die ganze Warteschlange verbrennen.
+        done = False
         for attempt in range(1, 4):
             try:
                 evaluate(d, client, llm_key, do_mapping=do_mapping)
+                done = True
                 break
             except Exception as e:
                 print(f"  FEHLER {d.name} (Versuch {attempt}/3): {e}", flush=True)
                 if attempt < 3:
                     time.sleep(60)
+        if done and with_pictograms and (RESULTS / f"{d.name}.json").exists():
+            locate_pictograms(d.name, run_id)
 
 
 if __name__ == "__main__":
