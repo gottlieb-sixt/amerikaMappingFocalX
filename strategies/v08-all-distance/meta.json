@@ -1,0 +1,11 @@
+{
+  "title": "v08 — alle Kandidaten + Geometrie als Evidenz",
+  "description": "Maximiert die Trefferquote auf mappbaren Schäden. Kein Gate: der Judge sieht ALLE Finding-Cluster (wie v03, das mit 69 % vorne liegt), bekommt aber zusätzlich das Piktogramm des DB-Schadens und für jeden Kandidaten den kanonischen Abstand — die Geometrie hilft beim Unterscheiden, filtert aber nichts weg. Prompt ist v03s inklusiver Judge, erweitert um Piktogramm/Abstand und aufgeweicht bei der harten Bauteil-Ausschlussregel, damit Ecken über Ansichtsgrenzen hinweg matchen dürfen.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "all",
+  "canon_distances": true,
+  "pictogram": true
+}

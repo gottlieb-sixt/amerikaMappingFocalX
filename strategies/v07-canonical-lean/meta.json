@@ -1,0 +1,12 @@
+{
+  "title": "v07 — Piktogramm-Shortlist, milder Judge",
+  "description": "Gate identisch zu v06 (kanonischer Abstand ≤ 40 %, höchstens 4 Cluster), aber der Prompt ist wieder der milde v05-Ton: die Streng-Absätze aus v06 sind raus, dafür steht explizit drin, dass ein Kandidat aus einer anderen Ansicht und mit anderem Bauteil-Label normal ist. Zielt auf die 19 v06-Fehlgriffe, bei denen das richtige Finding in der Shortlist lag und der Judge es trotzdem ablehnte.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 3,
+  "cand_images": 2,
+  "candidates": "canonical",
+  "canon_tau": 40,
+  "canon_k": 4,
+  "pictogram": true
+}

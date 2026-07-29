@@ -1,0 +1,11 @@
+{
+  "title": "v10 — v08 + Vorschlagsliste",
+  "description": "v08 unverändert (alle Kandidaten, Piktogramm, kanonischer Abstand als Evidenz, identische Verdict-Regeln) plus ein zusätzliches Rangfolge-Feld: bis zu drei plausible Kandidaten, wahrscheinlichster zuerst, für die menschliche Auswahl im Review. Die Mehrfach-Match-Anweisung aus v09 ist bewusst NICHT drin — sie hat dort die Präzision von 85 % auf 70 % gedrückt, weil der Judge unbeteiligte Findings anhängte. Die Unsicherheit steckt hier ausschließlich in der Rangfolge, die harten Urteile bleiben so streng wie in v08.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "all",
+  "canon_distances": true,
+  "pictogram": true
+}

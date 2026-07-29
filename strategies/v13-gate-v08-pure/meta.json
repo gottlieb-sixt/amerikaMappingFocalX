@@ -1,0 +1,12 @@
+{
+  "title": "v13 — v08 unverändert, nur mit Piktogramm-Gate",
+  "description": "Der reine Gate-Test: prompt.txt ist Byte für Byte v08s Prompt, alle Judge-Parameter identisch. Einziger Unterschied zu v08 ist die Kandidatenmenge — statt aller 13,3 Cluster nur die 4 nächsten innerhalb 40 % kanonischem Abstand, leere Shortlist = ohne KI leer. Damit ist die Differenz zu v08 (87 %) ausschließlich der Vorauswahl zuzuschreiben. Vorgänger v11 hatte den Prompt zusätzlich umformuliert (Basisraten als Prior) und fiel auf 68 % — dieser Lauf isoliert den Effekt wirklich. Kaveat: der Satz 'The candidate list is NOT pre-filtered' bleibt bewusst drin, obwohl er nun unzutreffend ist; er wird als Teil des unveränderten Prompts mitgemessen.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "canonical",
+  "canon_tau": 40,
+  "canon_k": 4,
+  "pictogram": true
+}

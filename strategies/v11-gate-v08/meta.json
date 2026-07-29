@@ -1,0 +1,12 @@
+{
+  "title": "v11 — v08-Judge auf der Piktogramm-Shortlist",
+  "description": "v08s Prompt (Metadaten-Vertrauen + Reviewer-Kalibrierung, der bisher beste Judge mit 87 %) zum ersten Mal MIT der deterministischen Vorstufe: kanonischer Abstand ≤ 40 %, höchstens die 4 nächsten Cluster. Leere Shortlist = 'FocalX hat den Schaden nicht' ohne KI-Call. v06/v07 hatten dieses Gate schon, aber die v05-Prompt-Linie — diese Zelle war unbesetzt. Zwei Prompt-Anpassungen gegenüber v08: der Absatz 'candidate list is NOT pre-filtered' ist umgedreht, und die Abstands-Anker sind auf das 0–40-Fenster umskaliert (unter 15 % → 41 % der Paare echt, 15–25 % → 13 %, über 25 % → 4 %). Erwartung: 84–86 % Genauigkeit bei einem Drittel der Bilder.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "canonical",
+  "canon_tau": 40,
+  "canon_k": 4,
+  "pictogram": true
+}

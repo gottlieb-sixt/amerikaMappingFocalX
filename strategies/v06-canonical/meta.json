@@ -1,0 +1,12 @@
+{
+  "title": "v06 — Piktogramm-Shortlist",
+  "description": "Zweistufig: deterministische Vorauswahl über den kanonischen Abstand auf dem Piktogramm (τ=40 %, höchstens die 4 nächsten Cluster), dann der v05-Judge nur auf dieser Shortlist. Leere Shortlist = 'FocalX hat den Schaden nicht' ohne KI-Call. Gate-Recall 92 % bei Ø 2,5 Kandidaten (v05: 79 % bei 3,1).",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 3,
+  "cand_images": 2,
+  "candidates": "canonical",
+  "canon_tau": 40,
+  "canon_k": 4,
+  "pictogram": true
+}

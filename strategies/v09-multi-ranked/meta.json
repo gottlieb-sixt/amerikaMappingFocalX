@@ -1,0 +1,11 @@
+{
+  "title": "v09 — Mehrfach-Match + Vorschlagsliste",
+  "description": "Wie v08 (alle Kandidaten, Piktogramm, kanonischer Abstand als Evidenz), plus zwei Erweiterungen: (1) der Judge darf und soll MEHRERE Kandidaten als denselben Schaden markieren, wenn FocalX ihn über zwei Ansichten oder Bauteile verteilt gemeldet hat — im Gold kommt genau das vor. (2) Er gibt zusätzlich eine nach Wahrscheinlichkeit sortierte Vorschlagsliste ALLER plausiblen Kandidaten aus. Die Unsicherheit wandert damit aus dem Verdict in die Rangfolge: die harten Urteile bleiben präzise, das Review bekommt eine Auswahl. Alle Per-Kandidat-Urteile werden gespeichert, sodass Confidence-Schwellen und Trefferquote@N ohne neuen Lauf auswertbar sind.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "all",
+  "canon_distances": true,
+  "pictogram": true
+}

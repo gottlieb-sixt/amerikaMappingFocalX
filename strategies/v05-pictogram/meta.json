@@ -1,0 +1,10 @@
+{
+  "title": "v05 — Piktogramm-Anker",
+  "description": "Deterministisches Gate auf NUR die Bauteilklasse (Seite/Typ sind bei echten Matches zu unzuverlässig), dann multimodaler Judge mit GT-Nahaufnahme + GT-Piktogramm (roter Marker aus den SHARK-Koordinaten als grober Orts-Anker) + FocalX-Nahaufnahme. Judge entschärft: nicht auf Seiten-/Typ-Label ablehnen, im Zweifel Same-damage.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 3,
+  "cand_images": 2,
+  "candidates": "deterministic",
+  "pictogram": true
+}

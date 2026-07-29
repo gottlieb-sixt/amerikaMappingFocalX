@@ -1,0 +1,11 @@
+{
+  "name": "v04-match-frame",
+  "title": "v04 — Matching statt Deduplizierung",
+  "description": "Reframt den Judge von 'Duplikat-Erkennung' auf 'Cross-Source-Matching': Verdict Same damage / Different damage statt Duplicate / Not Duplicate, und explizit gesagt, dass DB-Foto (Gate-Scanner/Zebra) und FocalX-Close-up aus VERSCHIEDENEN Erfassungssystemen stammen und unterschiedlich aussehen — es zählt der reale Schaden am selben Ort, nicht Bildähnlichkeit. Seite/Rad aus den Metadaten sind maßgeblich. Enge v01-Kandidatenvorauswahl (candidates=stored), sonst Parameter wie v01. Isoliert den Framing-Hebel.",
+  "model": "vertex_ai/gemini-3.1-pro",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "stored"
+}

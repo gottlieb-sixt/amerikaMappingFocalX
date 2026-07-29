@@ -1,0 +1,12 @@
+{
+  "title": "v12 — v08-Judge auf der Shortlist, minimal angepasst",
+  "description": "Korrektur von v11: dasselbe Gate (kanonischer Abstand ≤ 40 %, Top 4), aber v08s Prompt bleibt WÖRTLICH erhalten — geändert sind nur zwei Zeilen. Der Absatz 'candidate list is NOT pre-filtered' wird neutral umformuliert (gleiche Region, oft trotzdem unbeteiligt), und die 'weit weg'-Schwelle rutscht von 50 auf 30, weil im Gate nichts über 40 liegt. v11 hatte stattdessen die Basisraten in den Prompt geschrieben ('nur vier von zehn', 'leere Antwort ist normal') — der Judge lehnte daraufhin 38 statt 10 echte Matches ab und fiel auf 68 %. Diese Variante isoliert also wirklich den Gate-Effekt.",
+  "temperature": 0,
+  "max_tokens": 20000,
+  "gt_images": 4,
+  "cand_images": 2,
+  "candidates": "canonical",
+  "canon_tau": 40,
+  "canon_k": 4,
+  "pictogram": true
+}
