@@ -64,7 +64,58 @@ python3 scripts/export_gold.py
 # Mapping-Strategie gegen die Gold-Autos laufen lassen (s. Abschnitt unten)
 python3 -u scripts/run_strategy.py v02-name --dry-run   # erst zählen, ohne API
 python3 -u scripts/run_strategy.py v02-name             # echter Lauf (resümierbar)
+
+# Großer Stapel, unbeaufsichtigt (s. Abschnitt "Stapelläufe")
+python3 -u scripts/batch.py --run fl500 status
+python3 -u scripts/batch.py --run fl500 all --limit 30
 ```
+
+## Stapelläufe für viele Autos (`scripts/batch.py`)
+
+Für Größenordnungen, bei denen Zuschauen keine Option ist (500 Autos ≈ 10 Tage
+Rechenzeit: ~10 min FocalX + ~12 min Piktogramme + ~8 min v08 pro Auto). Der
+Orchestrator arbeitet **phasenweise** über alle Autos:
+
+`fetch` (Lynx) → `focalx` → `cluster` (Findings entdoppeln) →
+`truths` (DB-Zeilen gruppieren) → `pictograms` → `mapping` (v08)
+
+```bash
+python3 -u scripts/batch.py --run fl500 fetch --days 2026-07-21..2026-08-30
+python3 -u scripts/batch.py --run fl500 all              # focalx … mapping
+python3 -u scripts/batch.py --run fl500 pictograms --workers 2
+python3 -u scripts/batch.py --run fl500 status           # Fortschritt + Zeiten
+python3 -u scripts/batch.py --run fl500 all --retry-failed   # Quarantäne leeren
+```
+
+Warum es unbeaufsichtigt sicher ist:
+
+- **Zustand steht in den Ablagen, nicht in einer Buchhaltung.** `phase_done()`
+  prüft die Artefakte (Result-JSON, Piktogramm-Dateien, Strategie-Vorschläge).
+  Ein verlorenes `manifest.json` kostet nur die Zeitstatistik, keine Arbeit.
+- **Ein Auto je Unterprozess.** Absturz, Timeout, kaputtes JSON treffen nie die
+  Warteschlange. Nach `--max-attempts` (3) wandert das Auto in die Quarantäne
+  und wird im Statusbericht ausgewiesen; Logs je Auto unter
+  `data/runs/<id>/logs/<phase>/<checkin>.log`.
+- **Erfolg wird nachgeprüft:** Rückgabewert 0 genügt nicht, es muss auch
+  wirklich etwas in der Ablage stehen.
+- **Atomare Schreibvorgänge** (`.tmp` + `os.replace`) und **eine Sperre je Run**
+  (`batch.lock` mit PID) — zwei Orchestratoren auf einem Verzeichnis haben schon
+  einmal Ergebnisse vermischt.
+- **Strg-C beendet nach dem laufenden Auto**, nicht mitten im Schreiben.
+- `--run v1` ist gesperrt: der Original-Run bleibt eingefroren.
+- Zeiten: je Auto und Phase im `manifest.json`; zusätzlich `seconds` je Schaden
+  in den Piktogramm-Records und je Urteil in den Strategie-Vorschlägen.
+
+Die `fetch`-Phase kann nicht wirklich unbeaufsichtigt laufen — der Lynx-Token
+lebt ~5 min. Sie **wartet** deshalb vor jedem Lynx-Aufruf auf eine frische
+`.lynx_token` und macht von selbst weiter, sobald eine daliegt (`--token-timeout`
+begrenzt das Warten). Fotos werden je Tag sofort nach dem Abruf geladen
+(presigned, ~15 min), GT-Fotos direkt nach dem GT-Abruf (~30 min).
+
+Ohne Gold-Standard gibt es für neue Autos **keinen Score**, nur Vorschläge:
+`run_strategy.py --all-cars` leitet seine Arbeitsliste aus den `gt_clusters` der
+Result-Dateien ab (statt aus `gold/mapping_gold.json`) und respektiert dabei
+weiter die Ausschlüsse 🔧 repariert und ⏰ nach dem Check-in erfasst.
 
 ## Aktueller Fokus: Mapping-Strategien tunen (v02, v03, …)
 
@@ -126,6 +177,25 @@ Klicks über Koordinaten, Zellen nicht im DOM).
   `GET {base}/api/v2/service/inspections/{id}/damagereport/` — Achtung, Findings
   können sich dabei ändern (Anzahl/Reihenfolge) → über (position, part, type)
   matchen, nicht über Index.
+
+**Positionslabels sind eine geteilte Vokabel** — nicht nur ein FocalX-Detail:
+`eval/matcher.LABEL_SIDE_ZONE` leitet daraus die Fahrzeugseite ab. Ein Label, das
+dort fehlt, ergibt `side=None` ⇒ `nearness=1` ⇒ **jedes** Finding gilt als
+geografisch plausibel (Kandidatenpool unbrauchbar) und die Piktogramm-Projektion
+bleibt leer (`not_localizable`). Bei neuen Slot-Namen immer beide Stellen pflegen;
+`normalize_label` schluckt `custom_`-Präfix, `.jpg` und Zähler-Suffixe wie `-1`.
+
+**Foto-Seite ≠ Schaden-Seite.** `LABEL_SIDE_ZONE` sagt, von wo das Foto blickt —
+nicht, wo der Schaden sitzt. Ein Heck-Diagonalfoto zeigt beides: von 86 Funden
+darauf gehörten 40 auf die Seiten- und 46 auf die Heckansicht. Die
+Piktogramm-Ansicht kommt daher aus dem **Bauteilnamen**
+(`locate_pictograms._projection_for`), das Foto ist nur Rückfall für Namen ohne
+Richtung wie „fuel lid". Front-/Heckteile (`END_PARTS`) schlagen dabei das
+Seitenwort: „tail light right" gehört aufs Heck, nicht auf die Beifahrerseite.
+
+**Piktogramm-Lokalisierung braucht Pillow** → `.venv/bin/python`, nicht das
+System-`python3` (sonst `ModuleNotFoundError: PIL`). Die Pipeline ruft sie nach
+jedem fertigen Auto selbst auf (`--no-pictograms` schaltet das ab).
 
 **LLM-Gateway** (`llm.orange.sixt.com`, `eval/judge.py`):
 - Modell `vertex_ai/gemini-3.1-pro`. Reasoning-Tokens zählen ins `max_tokens`-Budget:

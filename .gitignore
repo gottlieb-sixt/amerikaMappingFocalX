@@ -4,3 +4,9 @@ __pycache__/
 *.pyc
 .venv/
 .lynx_token
+
+# Archive der Rohdaten (data.zip ist 1,2 GB) — Daten gehören nie ins Repo.
+*.zip
+
+# Referenzskript des Anbieters mit Zugangsdaten im Klartext.
+upload.py
