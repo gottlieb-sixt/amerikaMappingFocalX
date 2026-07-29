@@ -29,20 +29,42 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from eval.matcher import Truth, score as match_score  # noqa: E402
 
-RESULTS = ROOT / "data" / "results"
+from eval import runs as runs_mod  # noqa: E402
+
 GT_PHOTOS = ROOT / "data" / "gt_photos"
-REVIEWS = ROOT / "data" / "reviews"
 
 st.set_page_config(page_title="FocalX Evaluation", page_icon="🚗", layout="wide")
+
+# ── FocalX-Run wählen (versionierte Detection-Stände) ───────────────────────
+# Ein Run = ein FocalX-Durchlauf mit eigenen Findings UND eigenen Reviews.
+# Der Umschalter setzt RESULTS/REVIEWS für Review- und 📊-Seite; Gold-Standard
+# und Strategien (🧠) bleiben immer an v1 gepinnt.
+_run_opts = runs_mod.run_ids()
+_active = runs_mod.active_run_id()
+_run_id = st.sidebar.selectbox(
+    "FocalX-Run", _run_opts,
+    index=_run_opts.index(_active) if _active in _run_opts else 0,
+    format_func=runs_mod.label, key="run_sel")
+st.sidebar.caption("📊 & 🔍 folgen dem Run · 🧠 AI-Mapping/Gold bleibt an v1.")
+RESULTS = runs_mod.results_dir(_run_id)
+REVIEWS = runs_mod.reviews_dir(_run_id)
+# Piktogramme liegen neben den Results des Runs — dieselbe Ableitung wie in
+# scripts/locate_pictograms.py. Für v1 (results = data/results) ergibt das
+# data/pictograms_llm_focalx. Ein fester Pfad zeigte hier v1-Bilder zu
+# v3-Findings: gleiche Key-Namen (F4, F6 …), völlig andere Schäden.
+FX_PICTOS = RESULTS.parent / "pictograms_llm_focalx"
 
 reports = sorted(RESULTS.glob("*.json"))
 data = [json.loads(p.read_text()) for p in reports]
 data = [d for d in data if not d.get("skipped")]
 if not data:
-    st.info("Noch keine Ergebnisse — erst `python -m eval.pipeline …` laufen lassen.")
+    st.info(f"Run **{runs_mod.label(_run_id)}**: noch keine FocalX-Ergebnisse. "
+            f"Befüllen mit `python3 -m eval.pipeline --run {_run_id} --only-damaged` "
+            f"— oder oben links einen anderen Run wählen.")
     st.stop()
 
-MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "🧠 AI-Mapping"]
+MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "🧠 AI-Mapping",
+         "🧩 Piktogramm-Mapping", "🔗 Gold-Vergleich", "📐 Kanonisch"]
 # Navigation aus der Übersicht: VOR der Radio-Instanziierung verarbeiten
 # (session_state eines gerenderten Widgets darf nicht mehr geändert werden).
 if "nav_to_review" in st.session_state:
@@ -573,6 +595,17 @@ elif mode.startswith("🔍"):
     truths = {str(t["damage_id"]): t for t in r["truths"]}
     findings = {f["key"]: f for f in r["findings"]}
     fcl = finding_clusters_of(r)
+
+    # FocalX-Piktogramm-Lokalisierungen: Einzel-Key → Record (Kombi 'F4+F6' split).
+    _fx_loc: dict[str, dict] = {}
+    for _jf in sorted((FX_PICTOS / key).glob("*.json")):
+        try:
+            _rec = json.loads(_jf.read_text())
+        except Exception:
+            continue
+        for _k in str(_rec.get("id") or "").split("+"):
+            if _k.strip():
+                _fx_loc[_k.strip()] = _rec
     gcl = gt_clusters_of(r)
     review = load_review(r["checkin"])
 
@@ -739,6 +772,21 @@ elif mode.startswith("🔍"):
                                     f"(zählt nicht in die Statistik)")
                     elif rev:
                         st.markdown(f"📝 `{rev['verdict']}` → {', '.join(rev['human']) or 'kein Match'}")
+                    # GT-Piktogramm mit deterministischer DB-Position — zeigt, WO
+                    # der Schaden laut Datenbank sitzt (Kontrolle des Mappings).
+                    try:
+                        from eval import pictogram as _picto
+                        _gt_png = _picto.render_gt(key, list(dmg_ids),
+                                                   t.get("projection"),
+                                                   f"rev_{sel}_{gt_key}")
+                        if _gt_png:
+                            st.image(str(_gt_png), width=260,
+                                     caption=f"🟢 GT-Position · {t.get('projection')}/"
+                                             f"{t.get('segment')}")
+                        else:
+                            st.caption("🟢 GT-Piktogramm: keine DB-Koordinaten")
+                    except Exception:
+                        pass
                 with head[1]:
                     imgs = [pth for did in dmg_ids for pth in gt_images(key, did)][:4]
                     if imgs:
@@ -822,6 +870,24 @@ elif mode.startswith("🔍"):
                                   cyc.onmouseleave = () => chip.style.opacity = 0;
                                   show();
                                 </script></body>""", height=240)
+                            # FocalX-Piktogramm mit AI-Box: WO FocalX den Schaden
+                            # verortet — zum direkten Abgleich mit der GT-Position.
+                            _lrec = next((_fx_loc[k] for k in keys if k in _fx_loc), None)
+                            if _lrec and _lrec.get("box"):
+                                try:
+                                    from eval import pictogram as _picto
+                                    _fp = _picto.render_llm(
+                                        key, _lrec.get("projection"), _lrec["box"],
+                                        f"revfx_{sel}_{gt_key}_{ci}",
+                                        src_size=_lrec.get("pictogram_size"))
+                                    if _fp:
+                                        st.image(str(_fp), use_container_width=True,
+                                                 caption=f"🟥 FocalX-Position · "
+                                                         f"{_lrec.get('projection')}")
+                                except Exception:
+                                    pass
+                            elif _lrec is not None:
+                                st.caption("🟥 FocalX-Piktogramm: nicht lokalisierbar")
                             st.caption(f"**{'+'.join(keys)}** · {f0['part']} · {f0['type']}"
                                        + (" · 🧠 **AI-Vorschlag**" if is_ai else ""))
                             label = ("✅ Gewählt" if is_current
@@ -1074,3 +1140,810 @@ if mode.startswith("🧠"):
             } for x in _errs]), use_container_width=True, hide_index=True)
         else:
             st.write("Keine Fehler — perfekter Lauf.")
+
+
+# ══ 🧩 Piktogramm-Mapping: LLM-Box vs. DB-Wahrheit ══════════════════════════
+if mode.startswith("🧩"):
+    import math
+    from eval import pictogram as picto
+
+    st.title("🧩 Piktogramm-Mapping — LLM vs. Ground Truth")
+    st.caption("Für GT-Schäden kennen wir die ECHTE Position (DB-Koordinaten → "
+               "🟢 grüner Punkt). Der LLM bekam Bauteil/Seite/Projektion + Fotos "
+               "und hat eine 🟥 rote Box gesetzt. So sieht man, wie weit das "
+               "Prompt-Mapping von der Wahrheit abweicht. Grau = Abstand.")
+
+    LLM_GT_DIR = ROOT / "data" / "pictograms_llm"
+    car_dirs = sorted(d for d in LLM_GT_DIR.glob("*")
+                      if d.is_dir() and not d.name.startswith("_")
+                      and any(d.glob("*.json")))
+    if not car_dirs:
+        st.info("Noch keine LLM-Piktogramme. Erzeugen mit "
+                "`.venv/bin/python scripts/locate_pictograms.py --source gt`.")
+        st.stop()
+
+    def _load_recs(cdir: Path) -> list[dict]:
+        out = []
+        for jf in sorted(cdir.glob("*.json")):
+            try:
+                out.append(json.loads(jf.read_text()))
+            except Exception:
+                pass
+        return out
+
+    def _metrics(rec: dict):
+        """→ (hit, dist_px, dist_pct) oder (None, None, None)."""
+        box = rec.get("box")
+        size = rec.get("pictogram_size") or [0, 0]
+        w, h = size
+        if not box or not w:
+            return None, None, None
+        pt = picto.db_point(rec["plate_key"], rec.get("damage_ids", []), w, h)
+        if pt is None:
+            return None, None, None
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        hit = (box["x"] <= pt[0] <= box["x"] + box["width"]
+               and box["y"] <= pt[1] <= box["y"] + box["height"])
+        dist = math.hypot(cx - pt[0], cy - pt[1])
+        return hit, dist, 100 * dist / math.hypot(w, h)
+
+    # ── Gesamtüberblick über alle Autos ──────────────────────────────────────
+    all_m = []
+    for cdir in car_dirs:
+        for rec in _load_recs(cdir):
+            hit, _d, dpct = _metrics(rec)
+            if dpct is not None:
+                all_m.append((hit, dpct))
+    if all_m:
+        hr = 100 * sum(1 for h, _ in all_m if h) / len(all_m)
+        w10 = 100 * sum(1 for _, d in all_m if d <= 10) / len(all_m)
+        med = sorted(d for _, d in all_m)[len(all_m) // 2]
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Bewertbare GT-Schäden", len(all_m))
+        c2.metric("Punkt-in-Box-Treffer", f"{hr:.0f}%")
+        c3.metric("Mittelpunkt ≤10% weg", f"{w10:.0f}%")
+        c4.metric("Median-Abstand", f"{med:.1f}%")
+
+    st.divider()
+
+    _pk_to_plate = {d.name: d.name for d in car_dirs}
+    for cdir in car_dirs:
+        recs = _load_recs(cdir)
+        plate = recs[0]["plate"] if recs else cdir.name
+        _pk_to_plate[cdir.name] = plate
+    sel = st.selectbox("Auto", [d.name for d in car_dirs],
+                       format_func=lambda k: _pk_to_plate.get(k, k), key="picto_car")
+    only_diff = st.checkbox("nur größere Abweichungen (>10% Diagonale)", value=False)
+    show_nolocal = st.checkbox("not_localizable zeigen", value=False)
+
+    cdir = LLM_GT_DIR / sel
+    recs = _load_recs(cdir)
+    shown = 0
+    for rec in recs:
+        box = rec.get("box")
+        hit, dist, dpct = _metrics(rec)
+        if not box:
+            if not show_nolocal:
+                continue
+        elif only_diff and (dpct is not None and dpct <= 10):
+            continue
+
+        ids = rec.get("damage_ids", [])
+        proj = rec.get("projection", "")
+        cid = re.sub(r"[^A-Za-z0-9+_-]", "_", rec.get("gt_key") or rec.get("id") or "x")
+
+        head = f"**{rec.get('part','?')}** · {rec.get('side','?')} · {proj} · #{'+#'.join(ids)}"
+        if dpct is not None:
+            badge = "✅ Treffer" if hit else "❌ daneben"
+            head += f"  —  {badge} · Abstand **{dpct:.1f}%** ({dist:.0f}px)"
+        elif not box:
+            head += f"  —  ⚪ not_localizable: {rec.get('not_localizable_reason') or '—'}"
+        st.markdown(head)
+
+        src_size = rec.get("pictogram_size")
+        gt_png = picto.render_gt(rec["plate_key"], ids, proj, cid)
+        llm_png = (picto.render_llm(rec["plate_key"], proj, box, cid, src_size=src_size)
+                   if box else None)
+        ov = picto.render_overlay(rec["plate_key"], ids, proj, box or {}, cid,
+                                  src_size=src_size)
+        ov_png = ov[0] if ov else None
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.caption("🟢 Ground Truth (DB)")
+            if gt_png:
+                st.image(str(gt_png), use_container_width=True)
+            else:
+                st.caption("— keine DB-Koordinaten")
+        with col2:
+            st.caption("🟥 LLM-Prompt")
+            if llm_png:
+                st.image(str(llm_png), use_container_width=True)
+            else:
+                st.caption("— keine Box")
+        with col3:
+            st.caption("Overlay (beides)")
+            if ov_png:
+                st.image(str(ov_png), use_container_width=True)
+        if box:
+            st.caption(f"Selbsteinschätzung: part={box.get('part_match','?')} · "
+                       f"side={box.get('side_match','?')} · "
+                       f"photo={box.get('photo_evidence','?')} · "
+                       f"sub={box.get('sub_part_localized','?')}"
+                       + (f" · „{box.get('label')}”" if box.get('label') else ""))
+        st.divider()
+        shown += 1
+
+    if shown == 0:
+        st.info("Keine Schäden mit den aktuellen Filtern.")
+
+
+# ══ 🔗 Gold-Vergleich: GT-Piktogramm vs FocalX-Piktogramm (Gold-Matches) ══════
+if mode.startswith("🔗"):
+    from eval import pictogram as picto
+
+    st.title("🔗 Gold-Vergleich — GT vs FocalX (menschlich gemappte Paare)")
+    st.caption("Nur die im Gold-Standard als Match bestätigten GT↔FocalX-Paare. "
+               "Links GT (🟢 DB-Position + Foto), rechts FocalX (🟥 AI-Box + Close-up). "
+               "So sieht man visuell, wie gut Position und Bild zusammenpassen.")
+
+    GOLD_FILE = ROOT / "gold" / "mapping_gold.json"
+    FX_LLM = ROOT / "data" / "pictograms_llm_focalx"
+    RESULTS_DIR = ROOT / "data" / "results"
+    if not GOLD_FILE.exists():
+        st.info("Kein gold/mapping_gold.json.")
+        st.stop()
+    gold = json.loads(GOLD_FILE.read_text())
+
+    def _gpk(p):
+        return re.sub(r"[^A-Za-z0-9]", "", p or "").upper()
+
+    cars = []
+    for c in gold.get("cars", []):
+        n = sum(1 for d in c.get("damages", [])
+                if d.get("finding_keys") and not d.get("excluded"))
+        if n:
+            cars.append((c, n))
+    if not cars:
+        st.info("Keine Gold-Matches vorhanden.")
+        st.stop()
+
+    total_matches = sum(n for _, n in cars)
+    st.caption(f"{len(cars)} Autos · {total_matches} Gold-Matches gesamt.")
+    sel = st.selectbox(
+        "Auto", list(range(len(cars))),
+        format_func=lambda i: f"{cars[i][0]['plate']} ({cars[i][1]} Matches)",
+        key="goldcmp_car")
+    car = cars[sel][0]
+    plate = car["plate"]
+    pk = _gpk(plate)
+
+    # FocalX-Lokalisierungen: Einzel-Key → Record (Kombi-Keys 'F7+F9' aufgesplittet)
+    fx_by_key: dict[str, dict] = {}
+    for jf in sorted((FX_LLM / pk).glob("*.json")):
+        try:
+            r = json.loads(jf.read_text())
+        except Exception:
+            continue
+        for k in str(r.get("id") or "").split("+"):
+            if k.strip():
+                fx_by_key[k.strip()] = r
+
+    # FocalX-Findings aus results: key → finding (Close-up, part, type, position)
+    fx_find: dict[str, dict] = {}
+    res_file = RESULTS_DIR / f"{car.get('checkin')}.json"
+    if not res_file.exists():
+        res_file = None
+        for f in RESULTS_DIR.glob("*.json"):
+            try:
+                if _gpk(json.loads(f.read_text()).get("plate", "")) == pk:
+                    res_file = f
+                    break
+            except Exception:
+                pass
+    if res_file and res_file.exists():
+        for fi in json.loads(res_file.read_text()).get("findings", []):
+            if fi.get("key"):
+                fx_find[fi["key"]] = fi
+
+    shown = 0
+    for dm in car.get("damages", []):
+        keys = dm.get("finding_keys") or []
+        if not keys or dm.get("excluded"):
+            continue
+        shown += 1
+        proj = dm.get("projection", "")
+        ids = dm.get("damage_ids", [])
+        cid = re.sub(r"[^A-Za-z0-9+_-]", "_",
+                     dm.get("gt_key") or "+".join(ids) or "x")
+        st.markdown(f"### {dm.get('part','?')} · {dm.get('type','?')} · "
+                    f"{dm.get('side','?')} · {proj or '—'}  →  {', '.join(keys)}")
+
+        gcol, fcol = st.columns(2)
+        with gcol:
+            st.markdown("**🟢 Ground Truth**")
+            gt_png = picto.render_gt(pk, ids, proj, cid) if proj else None
+            if gt_png:
+                st.image(str(gt_png), use_container_width=True)
+            else:
+                st.caption("— kein GT-Piktogramm (keine Projektion/Koordinaten)")
+            gphotos = []
+            for did in ids:
+                gphotos += sorted((GT_PHOTOS / pk).glob(f"{did}_*.jpg"))
+            if gphotos:
+                st.image([str(p) for p in gphotos[:3]], use_container_width=True)
+            else:
+                st.caption("— kein GT-Foto")
+        with fcol:
+            st.markdown("**🟥 FocalX (AI-gemappt)**")
+            for k in keys:
+                rec = fx_by_key.get(k)
+                box = rec.get("box") if rec else None
+                if rec and box:
+                    fp = picto.render_llm(pk, rec.get("projection", proj), box,
+                                          f"{cid}__{k}",
+                                          src_size=rec.get("pictogram_size"))
+                    if fp:
+                        st.image(str(fp), use_container_width=True)
+                elif rec:
+                    st.caption(f"{k}: nicht lokalisierbar "
+                               f"({rec.get('not_localizable_reason') or '—'})")
+                else:
+                    st.caption(f"{k}: keine Lokalisierung vorhanden")
+                fi = fx_find.get(k)
+                if fi and fi.get("closeup"):
+                    cu = ROOT / fi["closeup"]
+                    if cu.exists():
+                        st.image(str(cu), use_container_width=True)
+                if fi:
+                    st.caption(f"{k}: {fi.get('part','?')} · {fi.get('type','?')} · "
+                               f"{fi.get('position','?')}")
+        st.divider()
+
+    if shown == 0:
+        st.info("Keine Gold-Matches für dieses Auto.")
+
+
+# ══ 📐 Kanonisch: rein metrisches Matching im Fahrzeugrahmen ═════════════════
+if mode.startswith("📐"):
+    import altair as alt
+
+    from eval import canonical as canon
+    from eval import pictogram as picto
+    from eval import strategy as strat
+    from eval.matcher import part_class
+
+    st.title("📐 Kanonisch — rein metrisches Matching")
+    st.caption(
+        "Jeder Piktogramm-Punkt wird in einen Fahrzeugrahmen (L = Front→Heck, "
+        "W = Fahrer→Beifahrer, H = oben→unten) übersetzt. Dadurch liegen Ecken "
+        "über Ansichtsgrenzen hinweg nah beieinander — Heck unten-links ist "
+        "dasselbe wie Fahrerseite unten-hinten. 🟢 DB-Schaden (SHARK-Koordinaten, "
+        "deterministisch) · 🟥 FocalX-Finding (AI-lokalisiert).")
+
+    RES_V1 = ROOT / "data" / "results"
+
+    @st.cache_data(show_spinner="Kanonische Abstände rechnen …")
+    def canon_rows(_gold_mtime: float):
+        """Ein Eintrag pro Benchmark-Urteil mit kanonischer Kandidaten-Rangliste.
+        Alles JSON-nah (Listen statt Sets), damit es cachebar bleibt."""
+        rows = []
+        recs = strat.benchmark_records()
+        gold = json.loads((ROOT / "gold" / "mapping_gold.json").read_text())
+        proj_by = {(c["checkin"], d["gt_key"]): d.get("projection")
+                   for c in gold["cars"] for d in c["damages"]}
+        for checkin in sorted({r["checkin"] for r in recs}):
+            rf = RES_V1 / f"{checkin}.json"
+            if not rf.exists():
+                continue
+            r = json.loads(rf.read_text())
+            pk = canon.plate_key(r["plate"])
+            by_key = {f["key"]: f for f in r["findings"]}
+            ph = r.get("physical") or {}
+            clusters = ph.get("finding_clusters") or [[f["key"]] for f in r["findings"]]
+            fx = canon.fx_records(pk)
+            fx_by_key = {k: rec for rec in fx for k in rec["keys"]}
+            for rec in [x for x in recs if x["checkin"] == checkin]:
+                proj = proj_by.get((checkin, rec["gt_key"]))
+                gold_keys = set(rec["gold_keys"])
+                gp = canon.gt_point(pk, rec["damage_ids"], proj) if proj else None
+                sp = canon.gt_strip(pk, rec["damage_ids"], proj) if proj else None
+                # Kandidat = Finding-Cluster aus data/results (genau die Menge, die
+                # ein Strategie-Lauf dem Judge vorlegt) — dieselbe Rangfolge, die
+                # das v06-Gate benutzt.
+                cands = [{
+                    "id": "+".join(c["keys"]), "keys": c["keys"], "index": c["index"],
+                    "projection": c["projection"], "strip": c["strip"],
+                    "closest_key": c["closest_key"], "dist": round(c["dist"], 1),
+                    "is_gold": bool(set(c["keys"]) & gold_keys),
+                } for c in canon.rank_clusters(gp, clusters, fx_by_key)]
+                # Bauteilklassen-Gate (das v05 heute benutzt) zum Vergleich
+                tc = part_class(rec["part"])
+                pc_clusters = [ks for ks in clusters if tc and part_class(
+                    by_key.get(ks[0], {}).get("part")) == tc]
+                pc_keys = {k for ks in pc_clusters for k in ks}
+                gold_rank = next((i for i, c in enumerate(cands, 1) if c["is_gold"]), None)
+                rows.append({
+                    "checkin": checkin, "plate": r["plate"], "plate_key": pk,
+                    "gt_key": rec["gt_key"], "damage_ids": rec["damage_ids"],
+                    "part": rec["part"], "type": rec["type"], "side": rec["side"],
+                    "projection": proj, "gold_keys": sorted(gold_keys),
+                    "gt_strip": sp, "has_geo": gp is not None,
+                    "cands": cands, "gold_rank": gold_rank,
+                    # Cluster-Indizes, die laut Gold zu diesem Schaden gehören —
+                    # Bezugsgröße für „Liste exakt = Gold“ und die Paar-Bilanz.
+                    "gold_ci": sorted(i for i, ks in enumerate(clusters)
+                                      if gold_keys & set(ks)),
+                    "n_clusters": len(clusters),
+                    "n_localized": sum(1 for ks in clusters if any(
+                        fx_by_key.get(k, {}).get("localized") for k in ks)),
+                    "gold_localized": bool(gold_keys) and any(
+                        fx_by_key.get(k, {}).get("localized") for k in gold_keys),
+                    "pc_hit": bool(gold_keys & pc_keys),
+                    "pc_size": len(pc_clusters),
+                    "pc_ids": ["+".join(sorted(ks)) for ks in pc_clusters],
+                    "fx_all": [{"id": c["id"], "keys": sorted(c["keys"]),
+                                "projection": c["projection"], "strip": c["strip"],
+                                "part": by_key.get(sorted(c["keys"])[0], {}).get("part"),
+                                "type": by_key.get(sorted(c["keys"])[0], {}).get("type")}
+                               for c in fx if c["localized"]],
+                })
+        return rows
+
+    rows = canon_rows((ROOT / "gold" / "mapping_gold.json").stat().st_mtime)
+    mapp = [r for r in rows if r["gold_keys"]]
+    if not mapp:
+        st.info("Keine mappbaren Gold-Urteile.")
+        st.stop()
+
+    # ── Kennzahlen: taugt die Rangliste als Kandidaten-Vorauswahl? ───────────
+    n = len(mapp)
+    ceiling = sum(1 for r in mapp if r["gold_rank"] is not None)
+    hit_at = {k: sum(1 for r in mapp if r["gold_rank"] and r["gold_rank"] <= k)
+              for k in (1, 2, 3, 4)}
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Mappbare Gold-Urteile", n)
+    c2.metric("Geometrisch erreichbar", f"{100*ceiling/n:.0f}%",
+              help="Echtes Finding ist lokalisiert und im kanonischen Rahmen "
+                   "vergleichbar — die Obergrenze für jedes Geometrie-Gate.")
+    c3.metric("Treffer auf Platz 1", f"{100*hit_at[1]/n:.0f}%")
+    c4.metric("unter den Top 2", f"{100*hit_at[2]/n:.0f}%")
+    c5.metric("unter den Top 4", f"{100*hit_at[4]/n:.0f}%")
+
+    def gate_row(label, tau, k, with_pc):
+        """Recall und Größe eines Gates — τ/k genau wie in canonical.shortlist.
+        Ø Kandidaten zählt über ALLE Urteile, nicht nur die mappbaren, weil das
+        Bildbudget auch für die Urteile ohne Match anfällt."""
+        hit = size = 0
+        for r in rows:
+            sel = [c for c in r["cands"] if c["dist"] <= tau][:k]
+            ids = {c["id"] for c in sel}
+            keysets = [set(c["keys"]) for c in sel]
+            if with_pc:
+                for cid in r["pc_ids"]:
+                    if cid not in ids:
+                        ids.add(cid)
+                        keysets.append(set(cid.split("+")))
+            size += len(ids)
+            if r["gold_keys"] and any(ks & set(r["gold_keys"]) for ks in keysets):
+                hit += 1
+        return {"Gate": label, "Recall": f"{100*hit/n:.0f}%",
+                "Ø Kandidaten": f"{size/len(rows):.1f}"}
+
+    gate_tbl = [{"Gate": "Bauteilklasse (v05 heute)",
+                 "Recall": f"{100*sum(1 for r in mapp if r['pc_hit'])/n:.0f}%",
+                 "Ø Kandidaten": f"{sum(r['pc_size'] for r in rows)/len(rows):.1f}"}]
+    for k in (2, 3, 4):
+        gate_tbl.append(gate_row(
+            f"kanonisch τ={canon.TAU:.0f} %, Top-{k}"
+            + ("  ← v06" if k == canon.K else ""), canon.TAU, k, False))
+    gate_tbl.append(gate_row(
+        f"kanonisch τ={canon.TAU:.0f} %, Top-{canon.K} ∪ Bauteilklasse",
+        canon.TAU, canon.K, True))
+    st.markdown("**Als Kandidaten-Vorauswahl** — enthält das Gate das menschlich "
+                "bestätigte Finding überhaupt?")
+    st.table(pd.DataFrame(gate_tbl))
+
+    with st.expander(f"❌ {n - ceiling} Urteile, die auch kanonisch nicht erreichbar sind"):
+        for r in mapp:
+            if r["gold_rank"] is None:
+                why = ("FocalX-Finding nicht lokalisiert" if not r["gold_localized"]
+                       else "kein DB-Punkt (Projektion/Koordinaten fehlen)"
+                       if not r["has_geo"] else "Finding nicht in der Rangliste")
+                st.markdown(f"- **{r['plate']}** · {r['part']} / {r['type']} · "
+                            f"{r['projection'] or '—'} → Gold `{', '.join(r['gold_keys'])}` "
+                            f"— {why}")
+
+    st.divider()
+
+    # ── Vollbilanz des Gates: was die Vorauswahl liefert und was sie kostet ──
+    # Alles deterministisch, kein LLM. Zwei Ebenen strikt getrennt:
+    #   URTEIL = ein GT-Schaden · PAAR = ein vorgeschlagener Finding-Cluster.
+    st.markdown("### Vollbilanz der deterministischen Zuordnung")
+    st.caption("Kein LLM — allein der kanonische Abstand entscheidet. "
+               "Regler verschieben, um andere Schwellen zu prüfen.")
+    sc1, sc2 = st.columns([2, 1])
+    tau_s = sc1.slider("τ — maximaler Abstand (% Fahrzeuglänge)", 5, 120,
+                       int(canon.TAU), 5, key="canon_tau")
+    k_s = sc2.slider("k — höchstens so viele Kandidaten", 1, 8, int(canon.K),
+                     key="canon_k")
+
+    shorts = [(r, [c for c in r["cands"] if c["dist"] <= tau_s][:k_s]) for r in rows]
+    short_by = {(r["checkin"], r["gt_key"]): s for r, s in shorts}
+    empt = [r for r in rows if not r["gold_keys"]]
+    n_all = len(rows)
+
+    tp = sum(1 for _, s in shorts for c in s if c["is_gold"])
+    fp = sum(1 for _, s in shorts for c in s if not c["is_gold"])
+    fp_mapp = sum(1 for r, s in shorts if r["gold_keys"]
+                  for c in s if not c["is_gold"])
+    gold_pairs = sum(len(r["gold_ci"]) for r in rows)
+    prec = tp / (tp + fp) if (tp + fp) else 0.0
+    recl = tp / gold_pairs if gold_pairs else 0.0
+    f1 = 2 * prec * recl / (prec + recl) if (prec + recl) else 0.0
+
+    hit = [r for r, s in shorts if r["gold_keys"] and any(c["is_gold"] for c in s)]
+    exact = [r for r, s in shorts
+             if r["gold_ci"] and sorted(c["index"] for c in s) == r["gold_ci"]]
+    lost = [r for r, s in shorts if r["gold_keys"] and not s]
+    only_wrong = [r for r, s in shorts
+                  if r["gold_keys"] and s and not any(c["is_gold"] for c in s)]
+    ok_empty = [r for r, s in shorts if not r["gold_keys"] and not s]
+    noise = [r for r, s in shorts if not r["gold_keys"] and s]
+    calls = [r for r, s in shorts if s]
+    n_cand = sum(len(s) for _, s in shorts)
+    pool = sum(r["n_clusters"] for r in rows) / n_all
+
+    m = st.columns(5)
+    m[0].metric("Ø Kandidaten pro Schaden", f"{n_cand/n_all:.2f}",
+                f"−{100-100*n_cand/(pool*n_all):.0f}% vs. {pool:.1f} ohne Gate",
+                delta_color="inverse",
+                help="Bezugsgröße ist der volle Kandidatenpool des Autos "
+                     "(alle Finding-Cluster).")
+    m[1].metric("Gate-Recall", f"{100*len(hit)/n:.0f}%",
+                help=f"Bei so vielen der {n} mappbaren Schäden steht das "
+                     "menschlich bestätigte Finding in der Liste.")
+    m[2].metric("Präzision (Paar-Ebene)", f"{100*prec:.0f}%",
+                help="Anteil richtiger Vorschläge an allen Vorschlägen. Niedrig, "
+                     "weil die Mehrheit der GT-Schäden gar kein FocalX-Pendant "
+                     "hat — dort ist jeder Kandidat zwangsläufig falsch.")
+    m[3].metric("ohne KI erledigt", f"{len(ok_empty) + len(exact)}",
+                f"{len(ok_empty)} leer + {len(exact)} eindeutig",
+                delta_color="off",
+                help="Leere Liste bei einem Schaden ohne Gold-Match = korrekt "
+                     "abgehakt. Liste exakt gleich Gold = direkt übernehmbar.")
+    m[4].metric("KI-Calls", f"{len(calls)}/{n_all}",
+                f"−{100-100*len(calls)/n_all:.0f}%", delta_color="inverse")
+
+    def pcs(a: int, b: int) -> str:
+        """Anteil als Prozenttext — die Bezugsgröße steht immer daneben im Text."""
+        return f"{100*a/b:.0f}%" if b else "—"
+
+    b1, b2 = st.columns(2)
+    with b1:
+        st.markdown(
+            f"**Paar-Ebene** — {tp+fp} Vorschläge insgesamt\n\n"
+            f"- ✅ richtig (TP) **{tp}** · {100*prec:.0f}% aller Vorschläge\n"
+            f"- ❌ falsch (FP) **{fp}** · {pcs(fp, tp+fp)} aller Vorschläge · davon "
+            f"{fp_mapp} als Konkurrenz bei Schäden mit Match, {fp-fp_mapp} bei "
+            f"Schäden ohne\n"
+            f"- ⛔ verpasste Gold-Paare (FN) **{gold_pairs-tp}** von {gold_pairs} · "
+            f"{pcs(gold_pairs-tp, gold_pairs)}\n"
+            f"- Ø Fehlvorschläge pro Schaden **{fp/n_all:.2f}**\n\n"
+            f"Precision {100*prec:.0f}% · Recall {100*recl:.0f}% · F1 {100*f1:.0f}%")
+    with b2:
+        st.markdown(
+            f"**Urteils-Ebene** — {n_all} Schäden ({n} mit Gold-Match, "
+            f"{len(empt)} ohne)\n\n"
+            f"- ✅ richtiges Finding in der Liste **{len(hit)}** · "
+            f"{pcs(len(hit), n)} der {n} mit Match, davon Liste exakt = Gold "
+            f"**{len(exact)}** · {pcs(len(exact), n)}\n"
+            f"- ⛔ Liste leer, obwohl es ein Match gab **{len(lost)}** · "
+            f"{pcs(len(lost), n)}\n"
+            f"- ❌ Liste voll, aber nur Falsches drin **{len(only_wrong)}** · "
+            f"{pcs(len(only_wrong), n)}\n"
+            f"- ✅ korrekt leer (FocalX hat den Schaden nicht) **{len(ok_empty)}** "
+            f"von {len(empt)} · {pcs(len(ok_empty), len(empt))}\n"
+            f"- 🤖 Liste nicht leer, KI muss ablehnen **{len(noise)}** · "
+            f"{pcs(len(noise), len(empt))} der {len(empt)} ohne Match\n\n"
+            f"Obergrenze mit perfekter Stufe 2: "
+            f"**{100*(len(hit)+len(empt))/n_all:.0f}%** Genauigkeit")
+
+    # Reject = Liste nicht leer, aber KEIN richtiger Kandidat drin: alles, was Stufe 2
+    # komplett ablehnen müsste. Zwei Ursachen, beide hier drin, weil die KI sie nicht
+    # unterscheiden kann — sie sieht nur falsche Kandidaten:
+    #   „kein Match“  Gold sagt, FocalX hat den Schaden gar nicht
+    #   „Gold verpasst“ es gibt ein echtes Finding, aber τ/k haben es rausgefiltert
+    # Sortiert nach Abstand des nächsten Fehlvorschlags — die engsten sind die
+    # gefährlichsten, weil sie einem Auto-Match am nächsten kommen.
+    rej = sorted(((r, s) for r, s in shorts if s and not any(c["is_gold"] for c in s)),
+                 key=lambda x: x[1][0]["dist"])
+    rej_pairs = sum(len(s) for _, s in rej)
+
+    def why_reject(r) -> str:
+        if not r["gold_keys"]:
+            return "kein Match"
+        return ("Gold außerhalb τ/k" if r["gold_rank"]
+                else "Gold nicht verortet")
+
+    if rej:
+        rej_head = (
+            f"{len(noise)} × „kein Match“ ({pcs(len(noise), len(empt))} der "
+            f"{len(empt)} Schäden ohne Gold-Match) · {len(only_wrong)} × "
+            f"„Gold verpasst“ ({pcs(len(only_wrong), n)} der {n} mit Gold-Match) · "
+            f"zusammen {rej_pairs} abzulehnende Vorschläge "
+            f"({pcs(rej_pairs, tp + fp)} aller Vorschläge, "
+            f"Ø {rej_pairs/len(rej):.1f} pro Fall).  \n")
+    else:
+        rej_head = ""
+
+    with st.expander(
+            f"✗ {len(rej)} Reject-Fälle · {pcs(len(rej), n_all)} aller {n_all} "
+            f"Urteile — Liste voll, aber nichts Richtiges drin"):
+        st.caption(
+            rej_head
+            + "Hier müsste Stufe 2 jeden einzelnen Vorschlag ablehnen. "
+            "„kein Match“ = FocalX hat den Schaden laut Mensch nicht, ohne "
+            "Kandidaten wäre das Urteil ohne KI korrekt leer geblieben. "
+            "„Gold nicht verortet“ = das echte Finding ist im Piktogramm nicht "
+            "lokalisiert, steht also in keiner Rangliste. „Gold außerhalb τ/k“ "
+            "= es wäre wählbar, die Schwellen schneiden es weg.")
+        if rej:
+            st.dataframe(pd.DataFrame([{
+                "Kennzeichen": r["plate"],
+                "Schaden": "#" + "+#".join(r["damage_ids"]),
+                "Bauteil": r["part"], "Typ": r["type"],
+                "Seite": r["side"] or "—", "Ansicht": r["projection"] or "—",
+                "Ursache": why_reject(r),
+                "Gold": ", ".join(r["gold_keys"]) or "—",
+                "Gold-Platz": f"{r['gold_rank']}" if r["gold_rank"] else "—",
+                "nächster": f"{s[0]['dist']} %",
+                "Vorschläge": ", ".join(f"{c['id']} ({c['dist']} %)" for c in s),
+            } for r, s in rej]), use_container_width=True, hide_index=True)
+        else:
+            st.write("Keine — bei diesen Schwellen enthält jede nicht-leere Liste "
+                     "auch das richtige Finding.")
+
+    # Recall-Trichter: die Schwellen sind selten das Problem, die Lokalisierung ist es.
+    g_loc = sum(1 for r in rows for c in r["cands"] if c["is_gold"])
+    g_tau = sum(1 for r in rows for c in r["cands"]
+                if c["is_gold"] and c["dist"] <= tau_s)
+    st.caption(
+        f"Recall-Trichter: {gold_pairs} Gold-Paare → {g_loc} mit verortetem "
+        f"FocalX-Cluster ({100*g_loc/gold_pairs:.0f}% = geometrische Obergrenze) "
+        f"→ {g_tau} innerhalb τ={tau_s} % → {tp} in den Top-{k_s}. "
+        "Was fehlt, fehlt fast nur an der Lokalisierung, nicht an den Schwellen.")
+
+    ch1, ch2, ch3 = st.columns(3)
+    len_df = pd.DataFrame([{"Länge": str(i) if i < k_s else f"{k_s} (Limit)",
+                            "Schäden": sum(1 for _, s in shorts if len(s) == i)}
+                           for i in range(k_s + 1)])
+    with ch1:
+        st.markdown("**Länge der Kandidatenliste**")
+        st.altair_chart(alt.Chart(len_df).mark_bar(color=BLUE).encode(
+            x=alt.X("Länge:N", title=None), y=alt.Y("Schäden:Q", title=None),
+            tooltip=["Länge", "Schäden"]).properties(height=200),
+            use_container_width=True)
+    with ch2:
+        st.markdown("**Recall nach Listenplatz**")
+        # Platz innerhalb der τ-gefilterten Rangliste — sonst würde der Regler
+        # die Balken nicht mitbewegen.
+        tau_rank = [next((i for i, c in enumerate(
+            [c for c in r["cands"] if c["dist"] <= tau_s], 1) if c["is_gold"]), None)
+            for r in mapp]
+        cum = [{"Platz": f"@{i}",
+                "Recall": round(100 * sum(1 for p in tau_rank if p and p <= i) / n)}
+               for i in range(1, k_s + 1)]
+        st.altair_chart(alt.Chart(pd.DataFrame(cum)).mark_bar(color=GREEN).encode(
+            x=alt.X("Platz:N", title=None),
+            y=alt.Y("Recall:Q", title=None, scale=alt.Scale(domain=[0, 100])),
+            tooltip=["Platz", "Recall"]).properties(height=200),
+            use_container_width=True)
+    with ch3:
+        st.markdown("**Abstandsverteilung**")
+        d_df = pd.DataFrame(
+            [{"Abstand": c["dist"], "Paar": "echt" if c["is_gold"] else "falsch"}
+             for r in rows for c in r["cands"]])
+        st.altair_chart(alt.Chart(d_df).mark_bar(opacity=0.75).encode(
+            x=alt.X("Abstand:Q", bin=alt.Bin(step=5), title="Abstand %"),
+            y=alt.Y("count()", stack=None, title=None,
+                    scale=alt.Scale(type="symlog")),
+            color=alt.Color("Paar:N", scale=alt.Scale(
+                domain=["echt", "falsch"], range=[GREEN, "#c9ced6"]),
+                legend=alt.Legend(orient="top", title=None)),
+            tooltip=["Paar:N", "count()"]).properties(height=200),
+            use_container_width=True)
+        st.caption("Log-Skala — echte Paare liegen fast alle unter 25 %.")
+
+    with st.expander("Pro Auto"):
+        per_car = []
+        for p in sorted({r["plate"] for r in rows}):
+            rs = [(r, s) for r, s in shorts if r["plate"] == p]
+            m_ = [(r, s) for r, s in rs if r["gold_keys"]]
+            h_ = sum(1 for r, s in m_ if any(c["is_gold"] for c in s))
+            per_car.append({
+                "Kennzeichen": p, "Urteile": len(rs), "mit Gold": len(m_),
+                "Ø Kandidaten": round(sum(len(s) for _, s in rs) / len(rs), 1),
+                "Recall": f"{100*h_/len(m_):.0f}%" if m_ else "—",
+                "Fehlvorschläge": sum(1 for _, s in rs
+                                      for c in s if not c["is_gold"]),
+            })
+        st.dataframe(pd.DataFrame(per_car), use_container_width=True,
+                     hide_index=True)
+
+    st.divider()
+
+    # ── Abgewickelter Fahrzeugstreifen pro Auto ──────────────────────────────
+    plates = sorted({r["plate"] for r in rows})
+    sel = st.selectbox("Auto", plates, key="canon_car")
+    car_rows = [r for r in rows if r["plate"] == sel]
+    scope = st.radio("Welche DB-Schäden", ["nur mit Gold-Match",
+                                           "+ Reject-Fälle", "alle"],
+                     horizontal=True, key="canon_scope")
+    link = st.radio("Verbindungslinien", ["Gold-Match", "nächster Kandidat", "keine"],
+                    horizontal=True, key="canon_link")
+
+    def reject_short(r) -> list[dict]:
+        """Vorschläge, die Stufe 2 komplett ablehnen müsste: Liste nicht leer, aber
+        kein richtiger Kandidat drin. Leer heißt: nichts zu widerrufen."""
+        s = short_by.get((r["checkin"], r["gt_key"]), [])
+        return [] if any(c["is_gold"] for c in s) else s
+
+    def in_scope(r) -> bool:
+        if r["gold_keys"] or scope == "alle":
+            return True
+        return scope.startswith("+") and bool(reject_short(r))
+
+    faces = [{"s": i + 0.5, "h": 0.02, "label": lab} for i, lab in enumerate(
+        ["Front", "Fahrerseite", "Heck", "Beifahrerseite"])]
+
+    gt_pts, fx_pts, links = [], [], []
+    seen_fx = set()
+    for r in car_rows:
+        if not in_scope(r):
+            continue
+        rs = reject_short(r)
+        sel_ = short_by.get((r["checkin"], r["gt_key"]), [])
+        if any(c["is_gold"] for c in sel_):
+            cls, note = "ja", f"Gold: {', '.join(r['gold_keys'])}"
+        elif rs:
+            cls = "reject"
+            note = (("Gold verpasst" if r["gold_keys"] else "kein Match")
+                    + " — Gate schlägt "
+                    + ", ".join(f"{c['id']} ({c['dist']} %)" for c in rs) + " vor")
+        elif r["gold_keys"]:
+            cls = "nein"
+            note = f"Gold {', '.join(r['gold_keys'])} nicht in der Vorauswahl"
+        else:
+            cls, note = "nein", "kein Match, kein Kandidat"
+        if r["gt_strip"]:
+            gt_pts.append({
+                "s": r["gt_strip"][0], "h": r["gt_strip"][1],
+                "label": f"{r['part']} / {r['type']}",
+                "info": f"{r['side'] or '—'} · {r['projection'] or '—'} · {note}",
+                "gemappt": cls,
+            })
+        for c in r["fx_all"]:
+            if c["id"] in seen_fx or not c["strip"]:
+                continue
+            seen_fx.add(c["id"])
+            fx_pts.append({"s": c["strip"][0], "h": c["strip"][1], "label": c["id"],
+                           "info": f"{c['part']} / {c['type']} · {c['projection']}"})
+        if not r["gt_strip"]:
+            continue
+        target = None
+        if link == "Gold-Match":
+            target = next((c for c in r["cands"] if c["is_gold"]), None)
+        elif link == "nächster Kandidat":
+            target = r["cands"][0] if r["cands"] else None
+        if target and target["strip"]:
+            links.append({"s": r["gt_strip"][0], "h": r["gt_strip"][1],
+                          "s2": target["strip"][0], "h2": target["strip"][1],
+                          "dist": target["dist"], "label": target["id"],
+                          "treffer": "ja" if target["is_gold"] else "nein"})
+
+    # Farben bewusst fest pro Ebene statt über Farbskalen: in einem Layer-Chart
+    # teilen sich alle Ebenen EINE Farbskala pro Kanal, zwei Skalen mit gleicher
+    # Domain ("ja"/"nein") kollidieren und Vega rendert dann gar nichts.
+    xs = alt.X("s:Q", scale=alt.Scale(domain=[0, 4], nice=False), axis=None, title=None)
+    ys = alt.Y("h:Q", scale=alt.Scale(domain=[1, 0], nice=False), axis=None, title=None)
+    tip = ["label:N", "info:N"]
+
+    def pts(rows, **mark):
+        return alt.Chart(pd.DataFrame(rows)).mark_point(
+            filled=True, **mark).encode(x=xs, y=ys, tooltip=tip)
+
+    layers = [
+        alt.Chart(pd.DataFrame({"s": [1.0, 2.0, 3.0]})).mark_rule(
+            color="#ccc", strokeDash=[4, 4]).encode(
+            x=alt.X("s:Q", scale=alt.Scale(domain=[0, 4], nice=False), axis=None)),
+        alt.Chart(pd.DataFrame(faces)).mark_text(
+            align="center", baseline="top", color="#888", fontSize=12).encode(
+            x=alt.X("s:Q", scale=alt.Scale(domain=[0, 4], nice=False), axis=None),
+            y=alt.Y("h:Q", scale=alt.Scale(domain=[1, 0], nice=False), axis=None),
+            text="label:N"),
+    ]
+    for hit, color in (("ja", GREEN), ("nein", ORANGE)):
+        sub = [x for x in links if x["treffer"] == hit]
+        if sub:
+            layers.append(alt.Chart(pd.DataFrame(sub)).mark_rule(
+                strokeWidth=1.6, opacity=0.8, color=color).encode(
+                x=xs, y=ys, x2="s2:Q", y2="h2:Q",
+                tooltip=["label:N", alt.Tooltip("dist:Q", title="Abstand %")]))
+    if fx_pts:
+        layers.append(pts(fx_pts, shape="square", size=110, color=RED, opacity=0.85))
+    for mapped, color in (("ja", GREEN), ("reject", ORANGE), ("nein", "#9aa5b1")):
+        sub = [x for x in gt_pts if x["gemappt"] == mapped]
+        if sub:
+            layers.append(pts(sub, shape="circle", size=160, color=color, opacity=0.9))
+    st.altair_chart(alt.layer(*layers).properties(height=320),
+                    use_container_width=True)
+    st.caption("Abgewickeltes Auto: die vier Ansichten liegen so nebeneinander, "
+               "wie sie am Fahrzeug aneinandergrenzen (der Streifen schließt sich "
+               "rechts wieder an die Front an). Oben = Dachkante, unten = Schweller. "
+               "🟢 DB-Schaden, dessen Gold-Match in der Vorauswahl steht · orange = "
+               "Reject: Vorauswahl voll, aber nichts Richtiges drin · grau = kein "
+               "Kandidat in Reichweite · 🟥 FocalX-Finding. Linie grün = Gold-Match, "
+               "orange = nächster Kandidat ist der falsche.")
+
+    st.divider()
+
+    # ── Ranglisten pro Schaden ──────────────────────────────────────────────
+    st.markdown("### Rangliste pro DB-Schaden")
+    for r in car_rows:
+        if not in_scope(r):
+            continue
+        rank = r["gold_rank"]
+        rs = reject_short(r)
+        if r["gold_keys"]:
+            badge = ("✅ Platz 1" if rank == 1 else f"🟡 Platz {rank}" if rank
+                     else "❌ nicht in der Rangliste")
+            if rs:
+                badge += (f" · ✗ Reject: Vorauswahl (τ={tau_s} %, k={k_s}) bietet "
+                          f"nur `{rs[0]['id']}` an — falsch")
+        elif rs:
+            badge = (f"✗ Reject: kein Match, Gate schlägt `{rs[0]['id']}` vor "
+                     f"({rs[0]['dist']} %)")
+        else:
+            badge = "– kein Gold-Match, kein Kandidat"
+        st.markdown(f"**{r['part']} / {r['type']}** · {r['side'] or '—'} · "
+                    f"{r['projection'] or '—'} · #{'+#'.join(r['damage_ids'])}  —  "
+                    f"Gold `{', '.join(r['gold_keys']) or '—'}` · {badge}")
+        if not r["cands"]:
+            st.caption("— keine lokalisierten FocalX-Findings "
+                       + ("(kein DB-Punkt)" if not r["has_geo"] else ""))
+            st.divider()
+            continue
+        rej_ids = {c["id"] for c in rs}
+        lines = []
+        for i, c in enumerate(r["cands"][:6], 1):
+            mark = "✅" if c["is_gold"] else "✗" if c["id"] in rej_ids else "·"
+            lines.append(f"{mark} **{i}.** `{c['id']}` · {c['projection']} · "
+                         f"Abstand **{c['dist']} %**")
+        st.markdown("  \n".join(lines))
+        with st.expander("Piktogramme (DB-Punkt vs. die zwei nächsten Kandidaten)"):
+            cid = re.sub(r"[^A-Za-z0-9+_-]", "_", r["gt_key"])
+            cols = st.columns(3)
+            with cols[0]:
+                st.caption("🟢 DB-Schaden")
+                g = (picto.render_gt(r["plate_key"], r["damage_ids"], r["projection"], cid)
+                     if r["projection"] else None)
+                if g:
+                    st.image(str(g), use_container_width=True)
+                else:
+                    st.caption("— kein DB-Punkt")
+            fx = canon.fx_records(r["plate_key"])
+            by_key = {k: rec for rec in fx for k in rec["keys"]}
+            for slot, c in zip(cols[1:], r["cands"][:2]):
+                rec = by_key.get(c.get("closest_key"))
+                with slot:
+                    st.caption(f"🟥 {c['id']} · {c['dist']} %"
+                               + (" · Gold" if c["is_gold"] else ""))
+                    p = (picto.render_llm(r["plate_key"], rec["projection"], rec["box"],
+                                         f"{cid}__{re.sub(r'[^A-Za-z0-9]', '_', c['id'])}",
+                                         src_size=rec["size"])
+                         if rec and rec["box"] else None)
+                    if p:
+                        st.image(str(p), use_container_width=True)
+        st.divider()
