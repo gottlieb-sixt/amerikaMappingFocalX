@@ -1,0 +1,10 @@
+# Nur für das AWS-Archiv (archive/) — bewusst getrennt von requirements.txt,
+# damit das Dashboard ohne AWS-Abhängigkeiten auskommt.
+#
+#   python3 -m venv ~/.cache/focalx-s3venv
+#   ~/.cache/focalx-s3venv/bin/python -m pip install -r requirements-archive.txt
+#
+# Nicht ins .venv des Dashboards: OneDrive verweigert dort das Schreiben.
+
+boto3>=1.34          # S3Store
+moto[s3]>=5.0        # S3 im Arbeitsspeicher für scripts/archive_s3_test.py
