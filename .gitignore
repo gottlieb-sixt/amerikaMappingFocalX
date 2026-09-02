@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .venv/
 .lynx_token
+.DS_Store
 
 # Archive der Rohdaten (data.zip ist 1,2 GB) — Daten gehören nie ins Repo.
 *.zip
