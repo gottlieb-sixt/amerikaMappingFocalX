@@ -63,12 +63,13 @@ if not data:
             f"— oder oben links einen anderen Run wählen.")
     st.stop()
 
-MODES = ["📊 Ergebnisse", "🔍 Review / manuelles Mapping", "🧠 AI-Mapping",
-         "🧩 Piktogramm-Mapping", "🔗 Gold-Vergleich", "📐 Kanonisch"]
+MODES = ["📊 Ergebnisse", "📈 Massenauswertung", "🔍 Review / manuelles Mapping",
+         "🧠 AI-Mapping", "🧩 Piktogramm-Mapping", "🔗 Gold-Vergleich",
+         "📐 Kanonisch"]
 # Navigation aus der Übersicht: VOR der Radio-Instanziierung verarbeiten
 # (session_state eines gerenderten Widgets darf nicht mehr geändert werden).
 if "nav_to_review" in st.session_state:
-    st.session_state["mode_radio"] = MODES[1]
+    st.session_state["mode_radio"] = next(m for m in MODES if m.startswith("🔍"))
     st.session_state["review_checkin_sel"] = st.session_state.pop("nav_to_review")
 mode = st.sidebar.radio("Modus", MODES, key="mode_radio")
 
@@ -79,6 +80,47 @@ GREEN, RED, ORANGE, BLUE = "#2e9e5b", "#d0433b", "#e8802a", "#3479c4"
 
 def plate_key(plate: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", plate).upper()
+
+
+SIZE_ORDER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll",
+              "> 4 Zoll", "komplett", "ohne Angabe"]
+DEPTH_ORDER = ["Delle ohne Lackschaden", "Delle mit Lackschaden",
+               "Kratzer oberflächlich", "Kratzer bis Grundierung",
+               "komplett", "ohne Angabe"]
+
+
+def size_bucket(sev: str | None) -> str:
+    s = (sev or "").lower()
+    if "0.5 inch" in s:
+        return "≤ 0,5 Zoll"
+    if "up to 1 inch" in s:
+        return "≤ 1 Zoll"
+    if "> 1 inch" in s:
+        return "> 1 Zoll"
+    if "< 2 inch" in s:
+        return "< 2 Zoll"
+    if "2-4 inch" in s:
+        return "2–4 Zoll"
+    if "> 4 inch" in s:
+        return "> 4 Zoll"
+    if "complete" in s:
+        return "komplett"
+    return "ohne Angabe"
+
+
+def depth_bucket(sev: str | None) -> str:
+    s = (sev or "").lower()
+    if "without paint" in s:
+        return "Delle ohne Lackschaden"
+    if "with paint" in s:
+        return "Delle mit Lackschaden"
+    if "superficial" in s:
+        return "Kratzer oberflächlich"
+    if "down to primer" in s:
+        return "Kratzer bis Grundierung"
+    if "complete" in s:
+        return "komplett"
+    return "ohne Angabe"
 
 
 def gt_images(key: str, damage_id: str) -> list[Path]:
@@ -337,44 +379,6 @@ if mode.startswith("📊"):
     st.caption("Basis: nur ✔️-abgeschlossene Autos und ausschließlich dein "
                "menschliches Urteil. Ausgeschlossene Schäden (🚫 manuell, "
                "🔧 repariert, ⏰ zu spät erfasst) zählen nicht.")
-
-    SIZE_ORDER = ["≤ 0,5 Zoll", "≤ 1 Zoll", "> 1 Zoll", "< 2 Zoll", "2–4 Zoll",
-                  "> 4 Zoll", "komplett", "ohne Angabe"]
-    DEPTH_ORDER = ["Delle ohne Lackschaden", "Delle mit Lackschaden",
-                   "Kratzer oberflächlich", "Kratzer bis Grundierung",
-                   "komplett", "ohne Angabe"]
-
-    def size_bucket(sev: str | None) -> str:
-        s = (sev or "").lower()
-        if "0.5 inch" in s:
-            return "≤ 0,5 Zoll"
-        if "up to 1 inch" in s:
-            return "≤ 1 Zoll"
-        if "> 1 inch" in s:
-            return "> 1 Zoll"
-        if "< 2 inch" in s:
-            return "< 2 Zoll"
-        if "2-4 inch" in s:
-            return "2–4 Zoll"
-        if "> 4 inch" in s:
-            return "> 4 Zoll"
-        if "complete" in s:
-            return "komplett"
-        return "ohne Angabe"
-
-    def depth_bucket(sev: str | None) -> str:
-        s = (sev or "").lower()
-        if "without paint" in s:
-            return "Delle ohne Lackschaden"
-        if "with paint" in s:
-            return "Delle mit Lackschaden"
-        if "superficial" in s:
-            return "Kratzer oberflächlich"
-        if "down to primer" in s:
-            return "Kratzer bis Grundierung"
-        if "complete" in s:
-            return "komplett"
-        return "ohne Angabe"
 
     size_stat: dict[str, tuple[int, int]] = {}
     depth_stat: dict[str, tuple[int, int]] = {}
@@ -1947,3 +1951,167 @@ if mode.startswith("📐"):
                     if p:
                         st.image(str(p), use_container_width=True)
         st.divider()
+
+
+if mode.startswith("📈"):
+    st.title("📈 Massenauswertung — wie viele DB-Schäden findet FocalX?")
+    st.caption("Alle Autos des aktiven Runs, gemappt von der KI. Diese Seite ist "
+               "**nicht menschlich validiert** — sie ist die Hochrechnung auf "
+               "große Stückzahl. Die geprüfte Wahrheit steht weiterhin auf der "
+               "📊-Seite (20 Autos, 127 Schäden, rein manuell gemappt).")
+
+    STRATS = RESULTS.parent / "strategies"
+    s_opts = sorted(p.name for p in STRATS.iterdir() if p.is_dir()) if STRATS.exists() else []
+    if not s_opts:
+        st.info(f"Für Run **{runs_mod.label(_run_id)}** gibt es noch keine "
+                f"Mapping-Läufe. Erzeugen mit "
+                f"`python3 -u scripts/run_strategy.py v08-all-distance "
+                f"--run {_run_id} --all-cars`.")
+        st.stop()
+    s_sel = st.selectbox("Mapping-Strategie", s_opts,
+                         index=s_opts.index("v08-all-distance")
+                         if "v08-all-distance" in s_opts else 0)
+
+    def _stamp(d: Path) -> tuple[int, float]:
+        fs = list(d.glob("*.json"))
+        return len(fs), max((f.stat().st_mtime for f in fs), default=0.0)
+
+    @st.cache_data(show_spinner="Mappings werden ausgewertet …")
+    def mass_rows(run_id: str, strategy: str, stamp: tuple[int, float]):
+        """Ein Datensatz je physischem DB-Schaden aus den fertigen Mappings.
+
+        Nur Autos, deren Mapping vollständig ist — ein halb gelaufenes Auto
+        würde sonst wie ein Auto mit lauter Nicht-Treffern aussehen."""
+        rows, cars, teilweise, offen = [], [], 0, 0
+        for f in sorted((RESULTS.parent / "strategies" / strategy).glob("*.json")):
+            res = RESULTS / f.name
+            if not res.exists():
+                continue
+            r = json.loads(res.read_text())
+            if r.get("skipped"):
+                continue
+            props = json.loads(f.read_text()).get("proposals") or {}
+            want = gt_clusters_of(r) or [[str(t["damage_id"])]
+                                         for t in r.get("truths") or []]
+            fertig = {k: p for k, p in props.items()
+                      if p.get("via") in ("ai", "ai_rejected")}
+            if len(fertig) < len(want):
+                teilweise += 1
+                offen += len(want) - len(fertig)
+                continue
+            key = plate_key(r["plate"])
+            srcs = source_map(key)
+            by_id = {str(t["damage_id"]): t for t in r.get("truths") or []}
+            getroffen: set[str] = set()
+            for gt_key, p in fertig.items():
+                ids = gt_key.split("+")
+                t = by_id.get(ids[0], {})
+                sev = t.get("severity")
+                hit = bool(p.get("finding_keys"))
+                getroffen.update(p.get("finding_keys") or [])
+                rows.append({
+                    "Auto": r["plate"], "checkin": r["checkin"],
+                    "Teil": t.get("part") or "ohne Angabe",
+                    "Typ": t.get("damage_type") or "ohne Angabe",
+                    "Größe": size_bucket(sev), "Tiefe": depth_bucket(sev),
+                    "Quelle": "Damage Gate" if srcs.get(ids[0]) == 10 else "übrige",
+                    "Gefunden": hit,
+                    "Kandidaten": p.get("n_candidates") or 0,
+                    "Sekunden": p.get("seconds") or 0.0,
+                })
+            cl = finding_clusters_of(r) or [[f_["key"]] for f_ in r.get("findings", [])]
+            cars.append({
+                "Auto": r["plate"], "checkin": r["checkin"],
+                "DB-Schäden": len(fertig),
+                "davon gefunden": sum(1 for p in fertig.values() if p.get("finding_keys")),
+                "FocalX-Meldungen": len(cl),
+                "ohne DB-Gegenstück": sum(1 for c in cl
+                                          if not (set(c) & getroffen)),
+            })
+        return pd.DataFrame(rows), pd.DataFrame(cars), teilweise, offen
+
+    df, cars_df, teilweise, offen = mass_rows(_run_id, s_sel, _stamp(STRATS / s_sel))
+    if df.empty:
+        st.info("Noch kein Auto vollständig gemappt.")
+        st.stop()
+
+    ges, tref = len(df), int(df["Gefunden"].sum())
+    roh = tref / ges
+
+    # Die KI mappt vorsichtiger als ein Mensch: auf dem Gold-Benchmark meldet sie
+    # weniger Matches, als tatsächlich da sind. Der Faktor daraus hebt die rohe
+    # Quote auf das zu erwartende menschliche Urteil.
+    faktor = korr = None
+    try:
+        from eval import strategy as _strat
+        _recs = _strat.benchmark_records()
+        _props = _strat.proposals_for(s_sel)
+        _mensch = sum(1 for r_ in _recs if r_.get("gold_keys"))
+        _ki = sum(1 for r_ in _recs
+                  if (_props.get((r_["checkin"], r_["gt_key"])) or {}).get("finding_keys"))
+        if _ki:
+            faktor = _mensch / _ki
+            korr = min(1.0, roh * faktor)
+    except Exception:
+        pass
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Autos ausgewertet", f"{len(cars_df)}")
+    c2.metric("Physische DB-Schäden", f"{ges}")
+    c3.metric("Von FocalX gefunden", f"{tref}", f"{roh:.1%} Recall")
+    c4.metric("Korrigiert (KI-Bias)",
+              f"{korr:.1%}" if korr else "—",
+              f"×{faktor:.2f}" if faktor else "kein Gold-Vergleich")
+    if teilweise:
+        st.caption(f"{teilweise} Auto(s) mit noch laufendem Mapping sind "
+                   f"ausgeklammert ({offen} offene Urteile).")
+    if faktor:
+        st.caption(f"Korrektur: Auf dem Gold-Benchmark (123 Urteile) meldet "
+                   f"**{s_sel}** {_ki} Matches, wo Menschen {_mensch} sehen — die "
+                   f"KI übersieht also Treffer. Die rohe Quote ist damit eine "
+                   f"Untergrenze, die korrigierte eine Schätzung des menschlichen "
+                   f"Urteils.")
+
+    def quote_df(spalte: str, order: list[str] | None = None) -> pd.DataFrame:
+        g = df.groupby(spalte)["Gefunden"].agg(["sum", "count"])
+        g = g.rename(columns={"sum": "Gefunden", "count": "Gesamt"})
+        g["Nicht gefunden"] = g["Gesamt"] - g["Gefunden"]
+        g["Recall"] = g["Gefunden"] / g["Gesamt"]
+        if order:
+            g = g.reindex([o for o in order if o in g.index])
+        else:
+            g = g.sort_values("Gesamt", ascending=False)
+        return g[["Gefunden", "Nicht gefunden", "Gesamt", "Recall"]]
+
+    def zeige(g: pd.DataFrame) -> None:
+        st.dataframe(g.style.format({"Recall": "{:.1%}"})
+                     .background_gradient(cmap="RdYlGn", subset=["Recall"],
+                                          vmin=0, vmax=1),
+                     use_container_width=True)
+
+    st.header("Nach Schadensgröße")
+    zeige(quote_df("Größe", SIZE_ORDER))
+    st.header("Nach Schadenstiefe")
+    zeige(quote_df("Tiefe", DEPTH_ORDER))
+
+    st.header("Nach Erfassungsquelle")
+    st.caption("**Damage Gate** = automatisches Scan-Portal (erfasst auch "
+               "kleinste Schäden) · **übrige** = Agent-App und andere Systeme.")
+    zeige(quote_df("Quelle"))
+
+    st.header("Nach Bauteil")
+    teile = quote_df("Teil")
+    zeige(teile.head(25))
+
+    st.header("Pro Auto")
+    st.caption("„ohne DB-Gegenstück“ = FocalX meldet einen Schaden, dem kein "
+               "DB-Eintrag zugeordnet wurde — entweder ein Fund, den die "
+               "Datenbank nicht kennt, oder ein Fehlalarm.")
+    cars_df = cars_df.sort_values("DB-Schäden", ascending=False)
+    st.dataframe(cars_df, use_container_width=True, hide_index=True)
+    st.caption(f"FocalX meldet insgesamt {int(cars_df['FocalX-Meldungen'].sum())} "
+               f"physische Schäden, davon "
+               f"{int(cars_df['ohne DB-Gegenstück'].sum())} ohne DB-Gegenstück.")
+
+    st.download_button("Alle Urteile als CSV", df.to_csv(index=False).encode(),
+                       file_name=f"{_run_id}_{s_sel}_schaeden.csv", mime="text/csv")

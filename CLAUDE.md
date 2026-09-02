@@ -65,6 +65,17 @@ python3 scripts/export_gold.py
 python3 -u scripts/run_strategy.py v02-name --dry-run   # erst zählen, ohne API
 python3 -u scripts/run_strategy.py v02-name             # echter Lauf (resümierbar)
 
+# AWS-Archiv: S3-Anbindung ohne Konto prüfen (moto, ohne Netz, 94 Prüfungen, ~17 s)
+~/.cache/focalx-s3venv/bin/python scripts/archive_s3_test.py
+
+# Echter Lauf gegen S3 (braucht boto3 → dasselbe venv, nicht system-python3)
+~/.cache/focalx-s3venv/bin/python -u scripts/archive_probe.py \
+  --bucket sixt-focalx-archiv-test-180111006559 --prefix focalx-neu \
+  day 2026-08-04 --limit 5
+
+# Adressen in den Reports neu setzen (nach Umzug/Bucket-Wechsel, ohne Downloads)
+python3 scripts/archive_probe.py --root archive rebuild
+
 # Großer Stapel, unbeaufsichtigt (s. Abschnitt "Stapelläufe")
 python3 -u scripts/batch.py --run fl500 status
 python3 -u scripts/batch.py --run fl500 all --limit 30
@@ -173,10 +184,48 @@ Klicks über Koordinaten, Zellen nicht im DOM).
   still ⇒ leerer Report nach 25 min.
 - `submitImages` liefert 200, setzt aber manchmal `is_images_submitted` nicht →
   `_ensure_submitted` verifiziert und wiederholt.
-- Close-up-/Report-URLs (CloudFront) laufen ab (403). Frischen Report holen:
-  `GET {base}/api/v2/service/inspections/{id}/damagereport/` — Achtung, Findings
-  können sich dabei ändern (Anzahl/Reihenfolge) → über (position, part, type)
-  matchen, nicht über Index.
+- **Die 168-h-Frist der Vollbild-URLs gilt der URL, nicht dem Bild.** Eine
+  gespeicherte URL ist danach tot (403), aber ein frischer
+  `GET {base}/api/v2/service/inspections/{id}/damagereport/` signiert neu:
+  7.814/7.814 Vollbilder eines Tages waren vier Wochen später wieder ladbar.
+  **Close-ups dagegen werden nicht neu signiert** — 10 von 6.673 (0,15 %) waren
+  nach vier Wochen endgültig weg. Also: Close-ups sofort laden, Vollbilder sind
+  nachholbar.
+- **Beim Nachladen ändern sich Findings — aber zwei Effekte trennen.** Über
+  Wochen ändert sich das Ergebnis (dasselbe Auto: August 32, September 38 Funde,
+  nur 26 deckungsgleich) ⇒ über (position, part, type) matchen, nie über Index.
+  Innerhalb von Minuten ändert sich dagegen nur die Reihenfolge im `Damages`-Feld
+  (8 von 425 Reports) — plus bei **jedem** Abruf neue `Expires`/`Signature`.
+  Reports nie über Bytes vergleichen; `archive/ingest.py:fingerprint` rechnet
+  beides heraus.
+- **Der Mandant hat gewechselt: `sixt` → `sixttwo`.** Reports vor Ende Juli tragen
+  `Account: "sixt"` und liegen unter `cloudfront.net/sixt/v2/…`; alles ab August
+  unter `sixttwo`. Mit den heutigen Zugangsdaten sind die alten **nicht mehr
+  abrufbar** (Report-GET ⇒ HTTP 500, nicht 403/404 — leicht mit einem Serverfehler
+  zu verwechseln). Die Nachladbarkeit der Vollbilder gilt also nur **innerhalb des
+  aktuellen Mandanten**; ein Mandantenwechsel ist ein harter Schnitt. Das ist kein
+  Aufbewahrungsproblem: Reports vom 28.07. (36 Tage alt) im neuen Mandanten laufen
+  einwandfrei.
+- **FocalX ändert sich unangekündigt.** Zwischen 05.08. und 02.09.2026:
+  Analysedauer 5,5 min → 17 s, anderes Modell (s. o.), Kennzeichenformat
+  `TXWCV5796` → `TX-WCV5796`. Kennzeichen immer selbst normalisieren; die
+  eingefrorenen Benchmark-Zahlen sind historische Messungen, keine Gegenwart.
+
+**AWS-Archiv** (`archive/`): Je Inspektion liegen **eine** `report.json` und ein
+`manifest.json` im Bucket. Die Reportdatei trägt unsere `s3://`-Adressen, die
+FocalX-Adressen werden nicht aufbewahrt; nicht Archiviertes steht als `null` in
+den drei Adressfeldern und gesammelt in `Archiv.fehlend`. Weil damit unsere
+Fassung und ein frischer FocalX-Bericht nie byteweise gleich sind, vergleicht
+`ingest.fingerprint` **ohne** Adressen und ohne Sortierung — wer das aufweicht,
+legt bei jedem Zweitabruf eine falsche `report.<zeitstempel>.json` an. Adressen
+werden bei jedem Lauf neu gesetzt, ein Nachlauf schließt also Lücken von selbst.
+Vorhandene Objekte werden **nicht** zurückgelesen — die Prüfsumme kommt aus dem
+letzten Manifest; nur `--pruefen` liest wirklich nach und meldet Abweichungen
+als `pruefsumme_abweichend`. Der Durchsatz im Lauf zählt daher nur frisch
+Geholtes (`frisch_bytes`), sonst meldete ein Leerlauf 20 Mbit/s.
+Im Dev-Konto ist `s3:DeleteObject` per **explizitem Verbot** gesperrt
+(`PutObject` geht): Testdaten lassen sich nicht wegräumen, und der
+DSGVO-Löschweg braucht eine eigene Rolle.
 
 **Positionslabels sind eine geteilte Vokabel** — nicht nur ein FocalX-Detail:
 `eval/matcher.LABEL_SIDE_ZONE` leitet daraus die Fahrzeugseite ab. Ein Label, das

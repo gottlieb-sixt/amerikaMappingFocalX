@@ -28,6 +28,8 @@ DOMAIN = "tenant.focalx.ai"
 DEFAULT_PROCESS_ID = "7BAQMZBAHUYK"
 POLL_INTERVAL_S = 20
 POLL_TIMEOUT_S = 1800
+NET_RETRIES = 4          # gegen kurze DNS-/Netzaussetzer (15 s, 30 s, 45 s Pause)
+NET_BACKOFF_S = 15
 
 # Walk-around-Labels aus v1/v2. Nur Labels mit `frame_url` im custom_data-Katalog
 # werden von der AI ausgewertet — hier die ersten 8. Die uebrigen nimmt die API zwar
@@ -88,13 +90,27 @@ class FocalxClient:
         images: list[tuple[str, Path]],
         on_progress: Callable[[str], None] = lambda msg: None,
         on_partial: Callable[[list[Finding]], None] | None = None,
+        on_submitted: Callable[[str], None] | None = None,
+        resume_id: str | None = None,
     ) -> InspectionResult:
         """Full inspection: create → upload → submit(+verify) → poll to completion.
 
         `images` = list of (position_label, file_path). Blocking (~10 min).
-        """
+
+        `resume_id` überspringt Anlegen und Hochladen und pollt eine bereits
+        laufende Inspektion weiter. Die AI rechnet serverseitig ohnehin fertig;
+        nach einem Netzabriss dieselben 19 Bilder erneut hochzuladen kostete im
+        Stapeltest zehn Minuten für nichts. `on_submitted` bekommt die
+        Inspektions-ID, sobald sie existiert — damit der Aufrufer sie für genau
+        diesen Fall wegschreiben kann."""
         base = self._ensure_base()
+        if resume_id:
+            on_progress(f"inspection {resume_id} — polling (Wiederaufnahme)")
+            report = self._poll_report(resume_id, on_progress, on_partial)
+            return self._result(report, resume_id)
         insp = self._create_inspection(plate)
+        if on_submitted:
+            on_submitted(insp)
         on_progress(f"inspection {insp} — uploading {len(images)} image(s)")
         for pos, path in images:
             self._upload(insp, pos, path)
@@ -102,11 +118,14 @@ class FocalxClient:
         self._post(f"{base}/api/v2/service/inspections/{insp}/submitImages/")
         self._ensure_submitted(insp, on_progress)
         report = self._poll_report(insp, on_progress, on_partial)
-        findings = _map_report(report)
+        return self._result(report, insp)
+
+    @staticmethod
+    def _result(report: dict, insp: str) -> InspectionResult:
         return InspectionResult(
             inspection_id=insp,
             completed=report.get("Completed", False),
-            findings=findings,
+            findings=_map_report(report),
             orientations=len(report.get("OrientationResults") or []),
             raw_report=report,
         )
@@ -225,6 +244,30 @@ class FocalxClient:
         return self._raw("POST", url, body)
 
     def _raw(self, method, url, body=None, ctype="application/json", auth=True) -> str:
+        """Wie _raw_once, aber übersteht kurze Netzaussetzer.
+
+        Im Stapeltest fiel die Namensauflösung für ~90 s aus. Ohne Wiederholung
+        stirbt daran die ganze Inspektion, und der Neuversuch lädt alle 19
+        Bilder erneut hoch (10 Minuten für nichts). Statuscodes bleiben Sache
+        der Aufrufer — 401 heißt neu anmelden, 404 beim Poll heißt noch nicht
+        fertig; nur serverseitige Aussetzer wiederholen wir selbst."""
+        last: Exception | None = None
+        for attempt in range(NET_RETRIES):
+            try:
+                return self._raw_once(method, url, body, ctype, auth)
+            except urllib.error.HTTPError as e:
+                if e.code not in (429, 500, 502, 503, 504):
+                    raise
+                last = e
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                last = e
+            if attempt == NET_RETRIES - 1:
+                raise last
+            time.sleep(NET_BACKOFF_S * (attempt + 1))
+        raise last                                      # nie erreicht
+
+    def _raw_once(self, method, url, body=None, ctype="application/json",
+                  auth=True) -> str:
         req = urllib.request.Request(url, method=method)
         req.add_header("Accept", "application/json")
         if auth and self._token:

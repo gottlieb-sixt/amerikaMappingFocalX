@@ -35,27 +35,35 @@ RESULTS = ROOT / "data" / "results"
 # Konvention der FocalX-Referenz (upload.py): position = Dateiname ohne Endung,
 # hochgeladen als {inspection}_{dateiname}. Die Rohfotos in data/raw/ tragen die
 # custom_-Slotnamen, daher ist die Abbildung hier die Identität.
-POSITION_MAP = {k: k for k in (
-    "custom_afront",                    # EXTERIOR_FRONT_STRAIGHT
-    "custom_arear",                     # EXTERIOR_REAR_STRAIGHT
-    "custom_afront-left",               # DIAGONAL_FRONT_LEFT
-    "custom_afront-right",              # DIAGONAL_FRONT_RIGHT
-    "custom_arear-left-bumper",         # DIAGONAL_REAR_LEFT
-    "custom_arear-right-bumper",        # DIAGONAL_REAR_RIGHT
-    "custom_arear-left",                # LEFT_SIDE_REAR_FENDER
-    "custom_arear-right",               # RIGHT_SIDE_REAR_FENDER
-    "custom_afront-bonnet-windshield",  # FRONT_BONNET
-    "custom_front-left-fender",         # FRONT_LEFT_FENDER
-    "custom_abcfront-right-fender",     # FRONT_RIGHT_FENDER
-    "custom_aleft-front-1",             # LEFT_SIDE_FRONT_DOOR
-    "custom_aleft-rear",                # LEFT_SIDE_REAR_DOOR
-    "custom_aright-front-1",            # RIGHT_SIDE_FRONT_DOOR
-    "custom_abcright-rear",             # RIGHT_SIDE_REAR_DOOR
-    "custom_afront-left-wheel",         # TYRE_RIM_FRONT_LEFT
-    "custom_afront-right-wheel",        # TYRE_RIM_FRONT_RIGHT
-    "custom_arear-left-wheel",          # TYRE_RIM_REAR_LEFT
-    "custom_arear-right-wheel",         # TYRE_RIM_REAR_RIGHT
-)}
+# Lynx-Slotname (so heißen frisch geladene Dateien) → FocalX-Positionslabel.
+# Das Label MUSS aus dem Tenant-Vokabular stammen und steht auch im Dateinamen
+# beim Upload — die AI leitet die Ansicht daraus ab.
+SLOT_TO_LABEL = {
+    "EXTERIOR_FRONT_STRAIGHT": "custom_afront",
+    "EXTERIOR_REAR_STRAIGHT": "custom_arear",
+    "DIAGONAL_FRONT_LEFT": "custom_afront-left",
+    "DIAGONAL_FRONT_RIGHT": "custom_afront-right",
+    "DIAGONAL_REAR_LEFT": "custom_arear-left-bumper",
+    "DIAGONAL_REAR_RIGHT": "custom_arear-right-bumper",
+    "LEFT_SIDE_REAR_FENDER": "custom_arear-left",
+    "RIGHT_SIDE_REAR_FENDER": "custom_arear-right",
+    "FRONT_BONNET": "custom_afront-bonnet-windshield",
+    "FRONT_LEFT_FENDER": "custom_front-left-fender",
+    "FRONT_RIGHT_FENDER": "custom_abcfront-right-fender",
+    "LEFT_SIDE_FRONT_DOOR": "custom_aleft-front-1",
+    "LEFT_SIDE_REAR_DOOR": "custom_aleft-rear",
+    "RIGHT_SIDE_FRONT_DOOR": "custom_aright-front-1",
+    "RIGHT_SIDE_REAR_DOOR": "custom_abcright-rear",
+    "TYRE_RIM_FRONT_LEFT": "custom_afront-left-wheel",
+    "TYRE_RIM_FRONT_RIGHT": "custom_afront-right-wheel",
+    "TYRE_RIM_REAR_LEFT": "custom_arear-left-wheel",
+    "TYRE_RIM_REAR_RIGHT": "custom_arear-right-wheel",
+}
+
+# Beide Schreibweisen führen zum selben Label: die Ordner der ersten Runs wurden
+# auf die custom_-Namen umbenannt, frisch geladene tragen die Lynx-Slotnamen.
+# Ohne den zweiten Satz gälte jedes neu geladene Auto als „keine Positions-Bilder".
+POSITION_MAP = {**SLOT_TO_LABEL, **{v: v for v in SLOT_TO_LABEL.values()}}
 
 
 def _env(name: str) -> str:
@@ -113,7 +121,34 @@ def evaluate(checkin_dir: Path, client: FocalxClient, llm_key: str,
         print("  ÜBERSPRUNGEN: keine Positions-Bilder", flush=True)
         return {"plate": plate, "checkin": name, "skipped": "no_position_images"}
 
-    result = client.inspect(key, images, on_progress=lambda m: print(f"  {m}", flush=True))
+    # Läuft für dieses Auto schon eine Inspektion? Dann weiterpollen statt neu
+    # hochzuladen — die AI rechnet serverseitig weiter, egal ob unsere Leitung
+    # kurz weg war. Die Marke ist absichtlich kurzlebig: eine Stunde später ist
+    # der Report entweder fertig oder verloren.
+    inflight = RESULTS / "inflight" / f"{name}.json"
+    resume_id = None
+    if inflight.exists():
+        age = time.time() - inflight.stat().st_mtime
+        if age < 3600:
+            resume_id = json.loads(inflight.read_text()).get("inspection_id")
+            print(f"  Wiederaufnahme von Inspektion {resume_id} "
+                  f"({age/60:.0f} min alt)", flush=True)
+        else:
+            inflight.unlink()
+
+    def _remember(insp: str) -> None:
+        inflight.parent.mkdir(parents=True, exist_ok=True)
+        inflight.write_text(json.dumps({"inspection_id": insp, "checkin": name}))
+
+    try:
+        result = client.inspect(key, images, resume_id=resume_id,
+                                on_submitted=_remember,
+                                on_progress=lambda m: print(f"  {m}", flush=True))
+    except Exception:
+        if resume_id:      # Wiederaufnahme gescheitert → nächster Versuch frisch
+            inflight.unlink(missing_ok=True)
+        raise
+    inflight.unlink(missing_ok=True)
     # Symmetrischer Scope: Glas-/Interior-Findings zählen weder als Treffer
     # noch als False Positives.
     from .ground_truth import is_exterior_non_glass

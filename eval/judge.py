@@ -115,6 +115,16 @@ def _post_with_retry(api_key: str, body: str, attempts: int = 10) -> str | None:
                 continue
             print(f"    [judge] HTTP {e.code} endgültig: {e.read()[:200]!r}", file=sys.stderr)
             return None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            # Netz-/DNS-Aussetzer dauern eher Minuten als Sekunden: im Stapeltest
+            # fiel die Namensauflösung ~90 s aus und verbrannte mit flachen 3 s
+            # Pause alle zehn Versuche in einer halben Minute. Exponentiell
+            # gedehnt hält dieselbe Zahl Versuche gut fünf Minuten durch.
+            if i < attempts - 1:
+                time.sleep(min(60, 5 * 2 ** i))        # 5,10,20,40,60,60,…
+                continue
+            print(f"    [judge] Netzfehler endgültig: {e!r}", file=sys.stderr)
+            return None
         except Exception as e:
             if i < attempts - 1:
                 time.sleep(3)

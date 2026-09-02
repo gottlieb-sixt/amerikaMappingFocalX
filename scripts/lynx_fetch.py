@@ -18,6 +18,7 @@ import struct
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -157,9 +158,36 @@ def call(token: str, message: bytes) -> tuple[bytes, dict]:
 
 # ── main ────────────────────────────────────────────────────────────────────
 
+TS = "%Y-%m-%dT%H:%M:%S"
+MAX_SPLIT_DEPTH = 5  # ein Tag → feinstens 45-min-Fenster
+
+
+def fetch_window(token: str, branch: str, start: datetime, end: datetime,
+                 depth: int = 0) -> list[bytes]:
+    """Ein Zeitfenster holen; bei „Result count … exceeds maximum" halbieren.
+
+    Lynx liefert höchstens 100 Check-ins pro Anfrage. Busy-Tage einer großen
+    Filiale sprengen das, deshalb teilt sich das Fenster selbst. Die Rohantworten
+    lassen sich einfach aneinanderhängen: das wiederholte Feld 1 (checkins)
+    verschmilzt beim Dekodieren von allein zu einer Liste."""
+    try:
+        payload, _ = call(token, encode_request(branch, start.strftime(TS),
+                                                end.strftime(TS)))
+        return [payload]
+    except RuntimeError as e:
+        if "exceeds maximum" not in str(e) or depth >= MAX_SPLIT_DEPTH:
+            raise
+    mid = start + (end - start) / 2
+    print(f"  Zu viele Treffer für {start:%H:%M}–{end:%H:%M} → teile bei "
+          f"{mid:%H:%M}", flush=True)
+    return (fetch_window(token, branch, start, mid, depth + 1) +
+            fetch_window(token, branch, mid + timedelta(seconds=1), end, depth + 1))
+
+
 def fetch_day(token: str, branch: str, day: str) -> dict | None:
-    msg = encode_request(branch, f"{day}T00:00:00", f"{day}T23:59:59")
-    payload, _ = call(token, msg)
+    start = datetime.strptime(f"{day}T00:00:00", TS)
+    end = datetime.strptime(f"{day}T23:59:59", TS)
+    payload = b"".join(fetch_window(token, branch, start, end))
     RAW.mkdir(parents=True, exist_ok=True)
     (RAW / f"{branch}_{day}.bin").write_bytes(payload)
     decoded = decode_message(payload) or {}

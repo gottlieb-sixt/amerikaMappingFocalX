@@ -410,6 +410,19 @@ def main() -> None:
     if not meta.get("prompt"):
         sys.exit(f"strategies/{name}/prompt.txt fehlt.")
 
+    # Geometrie-Strategien brauchen Pillow. Ohne PIL gibt eval.pictogram
+    # fail-soft None zurück: kein Piktogramm im Prompt, jeder Abstand None —
+    # der Lauf meldet Erfolg und war doch eine andere Strategie. Im Pilotlauf
+    # fl500 sind so 46 245 Abstände still leer geblieben. Lieber hart abbrechen.
+    if (meta.get("pictogram") or meta.get("canon_distances")
+            or meta.get("candidates") == "canonical"):
+        try:
+            import PIL                                        # noqa: F401
+        except ImportError:
+            sys.exit(f"{name} baut auf die Geometrie (pictogram / "
+                     f"canon_distances), aber {sys.executable} hat kein "
+                     f"Pillow — mit .venv/bin/python starten.")
+
     llm_key = _env("LLM_GW_API_KEY")
     if not llm_key and not dry_run:
         sys.exit("Kein LLM_GW_API_KEY in .env")
