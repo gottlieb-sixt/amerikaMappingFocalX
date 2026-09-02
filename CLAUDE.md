@@ -7,8 +7,9 @@ Anleitung für Claude Code in diesem Repository.
 Benchmark: **Wie viele der tatsächlichen DB-Schäden (SHARK) findet FocalX?**
 Echte Check-in-Fotos (19-Positionen-Walkaround, Branch 40139) → FocalX-Analyse →
 multimodales KI-Mapping gegen die SHARK-Ground-Truth → menschliche Validierung im
-Streamlit-Dashboard. Eigenes Git-Repo **ohne Remote** (nur lokal). Getrennt vom
-Android-Projekt `~/Documents/Code/VehicleCapture`.
+Streamlit-Dashboard. Eigenes Git-Repo mit Remote
+`github.com/gottlieb-sixt/amerikaMappingFocalX`. Getrennt vom Android-Projekt
+`~/Documents/Code/VehicleCapture`.
 
 Zwei getrennte Metriken, niemals vermischen:
 1. **FocalX-Detection-Qualität** — validiert durch menschliches Review (Stand: 54 % Recall über 20 Autos)
