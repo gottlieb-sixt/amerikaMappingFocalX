@@ -17,7 +17,9 @@ Abschnitt 3.0).
 > statt 29,5 TB** über 90 Tage bei 2.000 Check-ins am Tag. Die 164 MB stammten
 > aus einer einzelnen Mobile-App-Inspektion mit 7,5-Megapixel-Fotos; die Flotte
 > besteht zu 86 % aus 1-Megapixel-Aufnahmen. Damit kostet der Speicher 10–50 $
-> im Monat, nicht mehrere Hundert. Belegt mit `scripts/archive_probe.py`.
+> im Monat **je 90 Tage Bestand**, nicht mehrere Hundert. Belegt mit
+> `scripts/archive_probe.py`. Bei drei Jahren Aufbewahrung stellt sich der
+> Dauerwert auf 170–190 $ ein — siehe Abschnitt 2.3.
 >
 > **Und der Zeitdruck ist weg.** Ein erneuter Report-GET signiert die
 > Vollbild-URLs neu: Ein kompletter Tag vom 04.08. ließ sich am 02.09.
@@ -25,14 +27,19 @@ Abschnitt 3.0).
 > gilt der einzelnen URL, nicht dem Bild. Ein Ausfall des Dienstes über Tage
 > ist damit nachholbar — nur Closeups bleiben unwiederbringlich.
 
-> **Richtungswechsel am 03.09.2026: FocalX liefert, wir holen nicht mehr.**
-> Statt eines nächtlichen Abhollaufs stellen wir einen Endpoint bereit
-> (API-Key + vorsignierte Upload-Adressen), in den FocalX hineinschreibt — siehe
-> [`aws-archiv-betrieb.md`](aws-archiv-betrieb.md). Für dieses Dokument ändert
-> das drei Dinge: Die Mengen und Kosten bleiben, **der Download-Verkehr
-> entfällt** (damit auch die NAT-Frage in Abschnitt 4), und die Fragen an
-> FocalX zu Rate-Limit und Nachladbarkeit verlieren an Gewicht. Neu hinzu kommt
-> eine Schnittstellenvereinbarung mit FocalX (Betriebsdokument, Abschnitt 8).
+> **Richtungswechsel am 03.09.2026: FocalX meldet, wir holen nicht mehr von
+> selbst.** Statt eines nächtlichen Abhollaufs stellen wir einen Endpoint
+> bereit, an den FocalX **das Report-JSON** schickt — genau das, was ihr GET
+> zurückgibt, also mit Adressen auf ihr CloudFront und **ohne Bilddateien**.
+> Der Push ist eine Benachrichtigung, kein Datentransport; die Bilder laden wir
+> weiterhin selbst, nur sofort statt in der Nacht darauf. Siehe
+> [`aws-archiv-betrieb.md`](aws-archiv-betrieb.md).
+>
+> Für dieses Dokument ändert das wenig: **Mengen, Kosten und
+> Download-Verkehr bleiben unverändert.** Der Gewinn liegt woanders — weil wir
+> binnen Sekunden statt Stunden laden, sollte der Verlust von 0,15 % der
+> Ausschnitte gegen null gehen. Neu hinzu kommt eine Schnittstellenvereinbarung
+> mit FocalX (Betriebsdokument, Abschnitt 9).
 
 ---
 
@@ -99,27 +106,48 @@ daher nicht aus der Upload-Größe ableiten, sondern nur aus dem Rückgabewert:
 | Datenmenge | 11,9 GB/Tag | 23,9 GB/Tag |
 | Objekte | 38.000/Tag | 76.000/Tag |
 | Nach 90 Tagen | ~1,07 TB, ~3,4 Mio. Objekte | ~2,15 TB, ~6,8 Mio. Objekte |
+| **Nach 3 Jahren (Beharrungszustand)** | **~13 TB, ~42 Mio. Objekte** | **~26 TB, ~83 Mio. Objekte** |
 | Dauerlast Download | ~1,4 Mbit/s über 24 h | ~2,8 Mbit/s über 24 h |
 | … bei 4-h-Fenster | ~8 Mbit/s | ~16 Mbit/s |
 
-Speicherkosten für 2,15 TB, Größenordnung eu-central-1 — **vor dem Antrag mit
-aktueller Preisliste gegenprüfen**:
+### 2.3 Die Aufbewahrungsfrist entscheidet über die Größenordnung
 
-| Klasse | ca. je Monat | Haken |
-|---|---|---|
-| S3 Standard | ~50 $ | bei dieser Menge vertretbar |
-| Standard-IA | ~27 $ | 30 Tage Mindestlaufzeit |
-| Glacier Instant Retrieval | ~9 $ | 90 Tage Mindestlaufzeit, sofort lesbar |
-| Glacier Deep Archive | ~4 $ | 180 Tage Mindestlaufzeit, Abruf dauert Stunden |
+**Festgelegt am 03.09.2026: drei Jahre**, danach löscht eine Lifecycle-Regel.
+Begründung ist die regelmäßige Verjährung — so lange können Ansprüche aus dem
+Mietvertrag geltend gemacht werden, danach gibt es keinen Anlass mehr, ein Foto
+anzusehen. Das Archiv wächst damit nicht unbegrenzt, sondern pendelt sich bei
+rund **26 TB** ein: Täglich fällt hinten so viel weg, wie vorne dazukommt.
 
-**Die Speicherklasse ist damit keine wichtige Entscheidung mehr.** Zwischen der
-teuersten und der billigsten Variante liegen 46 $ im Monat; dafür lohnt weder
-eine Lifecycle-Mechanik noch das Bündeln der Closeups. Standard oder
-Standard-IA genügt, und beide bleiben ohne Mindestlaufzeit-Fallen abrufbar.
+Damit ändert sich eine frühere Einschätzung. Bei 2,15 TB (90 Tage) lagen
+zwischen der teuersten und der billigsten Speicherklasse nur 46 $ im Monat —
+„die Speicherklasse ist keine wichtige Entscheidung mehr" war dafür richtig.
+Bei 26 TB sind es rund 450 $, und die Entscheidung ist wieder eine.
 
-Die alte Rechnung mit 30 TB legte das Gegenteil nahe — sie beruhte auf einer
-einzelnen Mobile-App-Inspektion, die 14-mal so groß war wie ein durchschnittlicher
-Check-in unserer Flotte.
+Speicherkosten, Größenordnung eu-central-1 — **vor dem Antrag mit aktueller
+Preisliste gegenprüfen**:
+
+| Klasse | 2,15 TB (90 Tage) | 26 TB (3 Jahre) | Haken |
+|---|---|---|---|
+| S3 Standard | ~50 $ | ~640 $ | jederzeit sofort lesbar |
+| Standard-IA | ~27 $ | ~350 $ | 30 Tage Mindestlaufzeit |
+| Glacier Instant Retrieval | ~9 $ | ~130 $ | 90 Tage Mindestlaufzeit, sofort lesbar |
+| Glacier Deep Archive | ~4 $ | ~47 $ | 180 Tage Mindestlaufzeit, Abruf dauert Stunden |
+
+**Empfehlung: zwei Stufen, nicht drei.** 90 Tage Standard, danach Glacier
+Instant Retrieval — zusammen rund **170–190 $ im Monat**. Der Reflex, danach
+noch einmal ins Deep Archive umzulagern, spart zwar 80 $ Speicher, kostet aber
+etwa dasselbe an Umlagerungsgebühren: AWS berechnet **je Objekt**, und wir
+lagern 2,3 Mio. Objekte im Monat um. Bei vielen kleinen Dateien fressen sich
+Ersparnis und Gebühr gegenseitig auf.
+
+Ausgenommen bleiben Reports und Manifeste. Sie sind mit ~13 KB winzig, machen
+0,7 % der Bytes aus und sollen jederzeit sofort lesbar sein — eine
+Lifecycle-Regel mit **Größenfilter** (`ObjectSizeGreaterThan`) lässt sie in
+Standard liegen, ohne dass dafür das Ablageschema geändert werden müsste.
+
+Die alte Rechnung mit 30 TB je 90 Tage legte noch ganz andere Größenordnungen
+nahe — sie beruhte auf einer einzelnen Mobile-App-Inspektion, die 14-mal so groß
+war wie ein durchschnittlicher Check-in unserer Flotte.
 
 Zwei Kostenpunkte bleiben trotzdem erwähnenswert:
 
@@ -236,14 +264,14 @@ Ausgangslage: Im Zugriffsportal sind drei Konten sichtbar, darunter
 | # | Frage / Antrag | Warum es vorher geklärt sein muss |
 |---|---|---|
 | 1 | **Produktionskonto** für das Archiv beantragen (Gegenstück zu `mobile-damage-detection-dev`) | 1–2 TB echte Fahrzeugfotos gehören nicht in ein Entwicklungskonto: lockere Rechte, keine Sicherungspflicht, im Zweifel Neuaufsetzung. Solche Anträge dauern Wochen — deshalb Schritt 1 |
-| 2 | **Muss Lambda in einer VPC laufen?** | ~~NAT-Gateway-Gebühren von ~97 $ auf 2,15 TB~~ — **erledigt durch den Richtungswechsel:** Beim Push lädt niemand mehr 2,15 TB herunter, die Bilder gehen von FocalX direkt nach S3. Bleibt nur noch als allgemeine Frage zur Landing Zone relevant |
+| 2 | **Muss Lambda in einer VPC laufen?** | Wenn ja: NAT-Gateway-Gebühren von ~97 $ auf 2,15 TB, denn die Bilder laden wir weiterhin selbst. Wenn nein: 0 $ — eine Lambda ohne VPC-Anbindung hat direkten Internetzugang. Das ist die **einzige offene Kostenfrage** des Vorhabens |
 | 3 | **Region** — ist `eu-central-1` gesetzt, und verbieten SCPs andere Regionen? | Datenschutz und Latenz; FocalX liegt selbst in `eu-central-1` |
 | 4 | **Welche Rollen bekommen wir** (`AdministratorAccess`, `PowerUserAccess`, nur Lesen)? Dürfen wir S3-Buckets, Lambda-Funktionen und IAM-Rollen selbst anlegen? | Entscheidet, ob wir in Tagen oder in Ticketwochen bauen |
 | 5 | **Vorgeschriebene Bucket-Einstellungen:** Verschlüsselung (SSE-S3 oder KMS mit eigenem Schlüssel), Versionierung, Zugriffsprotokollierung, „Block Public Access" | Versionierung verdoppelt im Zweifel die Kosten — bei 2 TB verkraftbar, aber vorher wissen, nicht nachher |
 | 6 | **Erzwingt die Landing Zone Replikation oder Backup** in eine zweite Region? | Verdoppelt Speicherkosten, also ~30–50 $ im Monat. Für ein Archiv, dessen Quelle nach 7 Tagen verfällt, gut angelegt |
 | 7 | **Object Lock / Unveränderbarkeit:** vorgeschrieben, erlaubt, verboten? | Kollidiert direkt mit einem Löschkonzept aus Abschnitt 5 — die beiden Antworten müssen zueinander passen |
 | 8 | **Dienstkontingente:** Lambda-Parallelität, S3-Anfragen pro Sekunde und Präfix | 76.000 PUT/Tag sind unkritisch, aber die Parallelität muss zum Rate-Limit von FocalX passen |
-| 9 | **Kostenstelle und Budgetfreigabe** für Größenordnung 30–100 $/Monat Speicher plus Einmalkosten | Ohne Kostenstelle kein Konto. Die Größenordnung ist seit der Messung vom 02.09. deutlich kleiner als ursprünglich veranschlagt (100–800 $) |
+| 9 | **Kostenstelle und Budgetfreigabe** für Größenordnung **170–190 $/Monat** im Beharrungszustand plus Einmalkosten | Ohne Kostenstelle kein Konto. Achtung beim Antrag: Die ersten Monate kosten nur ~50 $, weil das Archiv erst wächst. Der Endwert stellt sich nach drei Jahren ein (26 TB, Abschnitt 2.3) — wer nach dem ersten Quartal budgetiert, unterschätzt um den Faktor 3 |
 | 10 | **Wo dürfen Zugangsdaten liegen** (Secrets Manager, Parameter Store) und wer rotiert sie? | FocalX-Passwort ist der Schlüssel zu allen Fahrzeugfotos |
 | 11 | **Löschrecht für den Archivdienst.** Unsere Rolle im Dev-Konto (`AWSReservedSSO_PowerUser-Restricted`) hat ein **explizites Verbot** auf `s3:DeleteObject` — am 02.09.2026 im Testbucket belegt. Der Dienst braucht eine eigene Rolle, die auf **ihrem** Präfix löschen darf, oder das Löschen läuft über Lifecycle-Regeln | Ohne Löschrecht ist der DSGVO-Löschweg aus Abschnitt 5 (Punkt 3) nicht ausführbar. Er funktioniert in unserem Test, aber gegen echtes S3 mit diesen Rechten nicht. `PutObject` ist erlaubt, Überschreiben also möglich — nur Entfernen nicht |
 
@@ -254,15 +282,22 @@ Ausgangslage: Im Zugriffsportal sind drei Konten sichtbar, darunter
 Fahrzeugfotos mit lesbaren Kennzeichen sind personenbezogene Daten. Der Punkt
 war schon als „mit Datenschutz klären" markiert — hier die konkreten Fragen.
 
+**Frage 2 ist entschieden: drei Jahre** (03.09.2026, Abschnitt 2.3). Damit ist
+der Grundsatz der Speicherbegrenzung erfüllt — aber auch nur der. Die übrigen
+sechs Fragen bleiben offen, und zwei davon betreffen den Bau unmittelbar: der
+Zweck (Nr. 1) und die Löschbarkeit auf Verlangen (Nr. 3).
+
 | # | Frage | Auswirkung auf den Bau |
 |---|---|---|
-| 1 | **Zweck** des Archivs: Nachweis, Qualitätsmessung, KI-Training? Und ist er im Verarbeitungsverzeichnis gedeckt? | Zweckbindung entscheidet, ob wir überhaupt dauerhaft speichern dürfen |
-| 2 | **Aufbewahrungsfrist**: wirklich unbegrenzt, oder gibt es eine Obergrenze? | Bestimmt Speicherklasse und Lebenszyklusregeln |
-| 3 | **Löschbarkeit je Fahrzeug oder Fall** nötig? | Bestimmt die Ordnerstruktur im Bucket. Nachträglich umzubauen heißt: 14 Mio. Objekte umkopieren |
-| 4 | **Personen auf den Bildern** (Mitarbeiter, Passanten): Unkenntlichmachung gefordert? | Wäre ein zusätzlicher Verarbeitungsschritt mit erheblichem Rechenaufwand |
+| 1 | **Zweck** des Archivs: Nachweis, Qualitätsmessung, KI-Training? Und ist er im Verarbeitungsverzeichnis gedeckt? | Zweckbindung entscheidet, ob wir überhaupt dauerhaft speichern dürfen. **Achtung:** Dieses Projekt ist als KI-Benchmark entstanden. KI-Training ist ein *anderer* Zweck als Schadensnachweis — das muss von Anfang an abgedeckt oder sauber getrennt sein |
+| 2 | ~~**Aufbewahrungsfrist**~~ | **Entschieden: 3 Jahre**, begründet mit der regelmäßigen Verjährung. Danach löscht eine Lifecycle-Regel rollierend, je Objekt 3 Jahre nach seiner Ablage |
+| 3 | **Löschbarkeit je Fahrzeug oder Fall** nötig? | Bestimmt die Ordnerstruktur im Bucket. Der Kennzeichen-Index ist dafür gebaut, aber **ausführen können wir es heute nicht** — siehe Abschnitt 4, Punkt 11. Derzeit die größte echte Lücke |
+| 4 | **Personen auf den Bildern** (Mitarbeiter, Passanten): Unkenntlichmachung gefordert? | Wäre ein zusätzlicher Verarbeitungsschritt mit erheblichem Rechenaufwand. Zugleich der einzige Weg zu einer Aufbewahrung über die 3 Jahre hinaus: Anonymisierte Daten fallen nicht mehr unter die DSGVO |
 | 5 | **Auftragsverarbeitungsvertrag mit FocalX** vorhanden und deckt er die Weitergabe an uns? | Die Daten liegen ohnehin schon dort; unser Abruf ist nur eine Kopie |
 | 6 | **Wer darf lesen?** Namentliche Gruppen für den Lesezugriff | IAM-Rollen und Freigabewege im Plan |
 | 7 | Kollidiert eine geforderte **Unveränderbarkeit** (Abschnitt 4, Punkt 7) mit dem Löschkonzept? | Muss vor dem Bucket-Anlegen entschieden sein — Object Lock ist nicht rückholbar |
+| 8 | **Ausnahme für strittige Fälle:** Läuft zu einem Fahrzeug ein Verfahren, dürfen dessen Bilder nicht mitten darin automatisch verschwinden | Technisch einfach (Markierung, die die Löschregel überspringt), aber es muss stehen, **bevor** die Regel scharf geschaltet wird |
+| 9 | Gilt die Frist auch für **Sicherungskopien** und eine etwaige Zweitregion? | Sonst löscht man vorne und behält hinten — das Löschkonzept wäre wertlos |
 
 ---
 

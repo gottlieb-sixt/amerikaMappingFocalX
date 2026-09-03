@@ -1,14 +1,15 @@
-# Der Archiv-Endpoint: FocalX liefert, wir ordnen ein
+# Der Archiv-Endpoint: FocalX meldet, wir holen und ordnen ein
 
 Voraussetzung ist [`aws-archiv-voraussetzungen.md`](aws-archiv-voraussetzungen.md)
 — dort steht, was angefragt werden muss und was gemessen wurde. Dieses Dokument
 beschreibt, **wie die Daten zu uns kommen und was daraus wird**.
 
-> **Richtungswechsel am 03.09.2026.** Ursprünglich sollte ein nächtlicher Lauf
-> die Daten bei FocalX abholen. Stattdessen stellen wir einen **Endpoint**
-> bereit, in den FocalX hineinliefert — voraussichtlich direkt aus ihren
-> internen S3-Buckets. Der Abschnitt „Was dadurch anders wird" hält fest, was
-> das kostet und was es einbringt.
+> **Stand 03.09.2026 — zugesagt und geklärt.** FocalX liefert künftig von sich
+> aus, statt dass wir nachts abholen. Geliefert wird **das Report-JSON, genau
+> wie es ihr GET zurückgibt** — also die Beschreibung mit Adressen auf ihr
+> CloudFront, **nicht die Bilddateien**. Der Push ist damit eine
+> *Benachrichtigung*, kein Datentransport. Die Bilder laden wir weiterhin
+> selbst, nur eben sofort statt in der Nacht darauf.
 
 Stand 02.09.2026: Der Ordnungs-Kern funktioniert nachweislich gegen echtes S3 —
 fünf Inspektionen, 166 Bilder, keine Lücke, 350 aufgelöste Adressen, 0 Fehler
@@ -16,30 +17,23 @@ fünf Inspektionen, 166 Bilder, keine Lücke, 350 aufgelöste Adressen, 0 Fehler
 
 ---
 
-## 1. Was der Richtungswechsel ändert — und was nicht
+## 1. Was sich ändert — erstaunlich wenig
 
-**Der Auslöser ändert sich, die Verarbeitung nicht.** Was wir gebaut haben, ist
-nicht „Daten holen", sondern „Daten ordnen": ein Prefix je Inspektion, ein
-Manifest mit Prüfsummen, ein Report mit Adressen ins Archiv statt zu FocalX,
-ein Kennzeichen-Index, eine belastbare Vollständigkeitsaussage. Das alles muss
-weiter entstehen — sonst liegt bei uns ein Haufen Objekte, den niemand einer
-Inspektion zuordnen kann. Der Kern in `archive/` bleibt also; aus dem
-Zeitplan wird ein Ereignis.
+Es ändert sich **der Auslöser, nicht die Verarbeitung**. Bisher fragten wir
+nachts die Tagesliste und holten Report für Report; künftig kommt der Report zu
+uns. Was danach passiert, ist identisch: Bilder laden, Prefix je Inspektion,
+Manifest mit Prüfsummen, Report mit Adressen ins Archiv, Kennzeichen-Index.
 
-**Was dadurch besser wird.** Bisher war die Architektur von einer Zahl
-bestimmt: 9,9 min für 425 Inspektionen, hochgerechnet **47 Minuten für einen
-Tag** — mehr als die 15 Minuten, die Lambda erlaubt. Deshalb fiel die Wahl auf
-einen Fargate-Task. Beim Push schrumpft die Arbeitseinheit von „ein ganzer Tag"
-auf „eine Inspektion", also auf Sekunden. **Damit ist Lambda die richtige
-Wahl** — die Entscheidung von gestern dreht sich um, weil sich ihre Grundlage
-geändert hat.
+**Unser Code kann das bereits.** `ingest_report()` nimmt genau dieses JSON
+entgegen und lädt die Bilder selbst. Der Endpoint muss nichts weiter tun, als
+den Schlüssel zu prüfen und das JSON weiterzureichen.
 
-**Was dadurch schlechter wird.** Wir wissen nicht mehr, was wir erwarten
-müssten. Die Tagesliste sagte uns: gestern gab es 425 Inspektionen. Beim Push
-kennen wir nur, was ankam. Fällt bei FocalX etwas aus, sieht das bei uns aus
-wie ein ruhiger Tag. Ein Abgleich über die Tagesliste ist bewusst **nicht**
-vorgesehen (Entscheidung vom 03.09.); ersatzweise überwachen wir die eigene
-Eingangsrate, siehe Abschnitt 6.
+**Was dadurch besser wird — und das ist mehr als Bequemlichkeit.** Heute
+verlieren wir 0,15 % der Ausschnitte (10 von 6.673 an einem Tag), weil ihre
+Adressen beim erneuten Report-Abruf **nicht** neu signiert werden und wir erst
+Stunden später abholen. Bei einer Benachrichtigung laden wir innerhalb von
+Sekunden nach der Analyse. Dieser Verlust sollte damit gegen null gehen — und
+er ist der einzige unwiederbringliche im ganzen System.
 
 ---
 
@@ -47,163 +41,188 @@ Eingangsrate, siehe Abschnitt 6.
 
 ```
 FocalX
-  │  ① POST /inspections   (API-Key)  ─ Report-JSON, ~35 KB
+  │  POST /inspections   (API-Key im Header, Report-JSON ~35 KB)
   ▼
-API Gateway ──> Lambda "anmelden"
-  │                 └─ legt den Report in incoming/ ab
-  │                 └─ antwortet mit einer vorsignierten PUT-Adresse je Bild
-  │
-  │  ② PUT <vorsignierte Adresse>  ─ die Bilder, direkt nach S3
-  ▼
-S3  incoming/<inspection-id>/…        (nur schreibbar für FocalX)
-  │
-  │  ③ S3-Ereignis
-  ▼
-Lambda "einordnen"  ──>  S3  v1/<jjjj>/<mm>/<tt>/<inspection-id>/
-                              report.json · manifest.json · images/ · closeups/
-                          index/plate/<KENNZEICHEN>/<inspection-id>.json
+API Gateway ──────> SQS ──────> Lambda "einordnen"
+  (Schlüssel,        (nimmt an,    ├─ lädt die Bilder von CloudFront
+   Ratenlimit)        puffert)     └─ schreibt nach S3
+                                        v1/<jjjj>/<mm>/<tt>/<inspection-id>/
+                                          report.json · manifest.json
+                                          images/ · closeups/
+                                        index/plate/<KENNZEICHEN>/…
 ```
 
-Drei Aufrufe, drei getrennte Verantwortlichkeiten: anmelden, hochladen,
-einordnen. Die Bilder laufen **nie durch unsere Rechenzeit** — sie gehen von
-FocalX direkt nach S3.
+Drei Teile, jeder mit einer Aufgabe. API Gateway prüft den Schlüssel und legt
+die Meldung direkt in die Warteschlange — **ohne Lambda dazwischen**, das
+beherrscht es als eigene Integration.
 
 ---
 
-## 3. Warum nicht einfach alles über den Endpoint
+## 3. Warum eine Warteschlange dazwischen gehört
 
-Der naheliegende Entwurf wäre ein einziger Aufruf mit allem darin. Dagegen
-spricht eine harte Zahl: **API Gateway begrenzt eine Anfrage auf 10 MB.** Eine
-Inspektion wiegt im Schnitt 9,5 MB, im Einzelfall deutlich mehr (eine
-Mobile-App-Inspektion mit 7,5-Megapixel-Fotos brachte 164 MB). Das würde nicht
-zuverlässig scheitern, sondern gelegentlich — die unangenehmste aller Varianten,
-weil sie erst im Betrieb auffällt und dann nur sporadisch.
+Zwei Gründe, beide handfest.
 
-Deshalb die Zweiteilung: Der **Report** ist mit ~35 KB unkritisch und geht durch
-den Endpoint. Die **Bilder** gehen an vorsignierten Adressen vorbei an unserer
-Rechenzeit. Das ist zugleich billiger — Lambda zahlt keine Zeit fürs Warten auf
-Uploads.
+**Eine verpasste Meldung ist weg.** Beim Abholen konnten wir die Arbeitsliste
+jederzeit aus der Tagesliste neu ableiten. Eine Benachrichtigung, die wir nicht
+annehmen, kommt nicht wieder — es sei denn, FocalX wiederholt sie. Die
+Warteschlange trennt *Annehmen* von *Verarbeiten*: Solange sie erreichbar ist,
+ist die Lieferung sicher, auch wenn unsere Verarbeitung gerade klemmt.
+Wiederholungen und eine Fehlerablage gibt es von SQS geschenkt.
 
----
-
-## 4. Die Landezone
-
-FocalX schreibt nach `incoming/`, nicht ins Archiv. Ohne diese Trennung
-bestimmt der Absender unser Ablageschema, und beim ersten Formatwechsel bei
-FocalX ist das Archiv inkonsistent.
-
-Regeln für den Bucket:
-
-- **Nur schreiben.** Die vorsignierten Adressen erlauben genau ein `PutObject`
-  auf genau einen Schlüssel, zeitlich begrenzt. Kein Lesen, kein Auflisten,
-  kein Überschreiben fremder Objekte.
-- **„Bucket owner enforced" bei Object Ownership.** Bei kontenübergreifenden
-  Uploads gehört ein Objekt sonst dem **Absender** — wir könnten unsere eigenen
-  Daten nicht lesen. Diese Einstellung muss beim Anlegen des Buckets sitzen.
-- **Prüfsumme verpflichtend.** Die vorsignierte Adresse verlangt
-  `x-amz-checksum-sha256`. Das prüft die Übertragung Ende zu Ende und füllt
-  nebenbei unser Manifest, ohne dass wir ein einziges Byte lesen müssen.
-- **Lifecycle-Regel statt Löschen.** Nach dem Einordnen ist die Landezone
-  Ballast; sie doppelt zu bezahlen wäre unnötig. Da uns heute das Löschrecht
-  fehlt (Voraussetzungs-Dokument, Abschnitt 4, Punkt 11), räumt eine
-  Lifecycle-Regel nach wenigen Tagen auf.
+**FocalX soll nicht auf uns warten.** Das Einordnen dauert rund **7 Sekunden je
+Inspektion** (gemessen: 6,3 bis 8,2 s beim echten S3-Lauf), weil dabei ~34
+Bilder geladen werden. Bei 2.000 Meldungen am Tag wäre es unhöflich und
+fehleranfällig, die Verbindung so lange offenzuhalten. Mit Warteschlange
+antwortet der Endpoint in Millisekunden.
 
 ---
 
-## 5. Der Endpoint und der Schlüssel
+## 4. Warum jetzt Lambda genügt
 
-`POST /inspections` mit dem Report-JSON im Körper, abgesichert über einen
-**API-Key** im Header. API Gateway bringt dafür Usage Plans mit, die neben der
-Prüfung des Schlüssels auch gleich eine Ratenbegrenzung liefern.
+Gegen Lambda sprach im Abhol-Entwurf eine Zahl: 47 Minuten für einen ganzen Tag
+gegen eine harte Grenze von 15 Minuten. Beim Push schrumpft die Arbeitseinheit
+von „ein ganzer Tag" auf „eine Inspektion" — also von 47 Minuten auf 7
+Sekunden. Der Fargate-Task entfällt.
 
-Dazu gehört:
+**Kein VPC, kein NAT.** Eine Lambda außerhalb einer VPC hat direkten
+Internetzugang und verursacht keine NAT-Gebühren. Nur wenn die Landing Zone
+eine VPC erzwingt, kommen die ~97 $ auf 2,15 TB zurück — dann nimmt ein
+**S3-Gateway-Endpoint** (kostenlos) wenigstens den Ablage-Verkehr heraus. Das
+ist die einzige offene Kostenfrage.
 
-- **Rotation von Anfang an mitdenken.** Ein Schlüssel, der nie wechselt, wird
-  irgendwann in einem Wiki stehen. Zwei gleichzeitig gültige Schlüssel erlauben
-  einen Wechsel ohne Absprache im Minutentakt.
-- **Herkunft einschränken**, falls FocalX feste IP-Bereiche nennen kann — eine
-  zweite Hürde, die nichts kostet.
-- **Der Schlüssel liegt im Secrets Manager**, nicht im Code und nicht in einer
-  Umgebungsvariablen des Deployments.
+---
+
+## 5. Was der Endpoint prüfen muss
+
+Nicht alles, was ankommt, gehört ins Archiv. Der Ingest bringt die Prüfungen
+schon mit, sie müssen nur angewandt werden:
+
+- **Nur fertige Reports.** Ein Report ohne `Completed` hat unvollständige
+  `OrientationResults`; ihn zu archivieren hieße, eine Lücke als Ergebnis
+  festzuschreiben. Der Abhol-Lauf filtert das bereits, der Endpoint muss es
+  ebenso tun.
+- **Plausible Kennzeichen.** `TEST`, `TEST4`, leer — alles in einem echten
+  Produktionstag vorgekommen. Wird archiviert, aber markiert.
+- **Doppelte Meldungen sind unkritisch.** Der Ingest ist idempotent; eine
+  Wiederholung schreibt kein Objekt doppelt. Ein inhaltlich abweichender
+  Zweitabruf landet als `report.<zeitstempel>.json` daneben.
+
+Der Schlüssel selbst liegt im Secrets Manager. Zwei gleichzeitig gültige
+Schlüssel erlauben eine Rotation ohne Absprache im Minutentakt — ein Schlüssel,
+der nie wechselt, steht irgendwann in einem Wiki.
 
 ---
 
 ## 6. Vollständigkeit und Überwachung
 
-**Je Inspektion bleibt die Prüfung erhalten**, und zwar ohne Zutun: Der Report,
-den FocalX anmeldet, listet selbst alle zugehörigen Bilder. Daraus entsteht wie
-bisher der Soll-Bestand, das Manifest vergleicht ihn mit dem Ist. Eine
-unvollständige Lieferung fällt also weiterhin auf.
+**Je Inspektion bleibt die Prüfung erhalten**, ohne Zutun: Der gelieferte Report
+listet selbst alle zugehörigen Bilder, daraus entsteht der Soll-Bestand, das
+Manifest vergleicht ihn mit dem Ist.
 
-**Tagesweise fehlt uns die Kontrolle** — das ist der bewusst in Kauf genommene
-Preis. Ersatz ist ein Alarm auf der **eigenen Eingangsrate**: Kommen statt der
-üblichen ~2.000 Inspektionen plötzlich 300 oder gar keine, ist etwas kaputt,
-ganz gleich wo. Das braucht keinen FocalX-Zugriff und keinen Schlüssel.
+**Tagesweise fehlt uns die Kontrolle.** Ein Abgleich über die Tagesliste ist
+bewusst nicht vorgesehen (Entscheidung vom 03.09.). Ersatz ist ein Alarm auf der
+**eigenen Eingangsrate**: Kommen statt der üblichen ~2.000 Meldungen plötzlich
+300 oder gar keine, ist etwas kaputt — gleich wo, und ohne dass wir FocalX dafür
+befragen müssten.
 
-Weitere Alarme, unverändert aus dem Pull-Entwurf:
+Weitere Alarme:
 
-- **Fehlende Ausschnitte — am selben Tag.** Sie sind unwiederbringlich; ein
-  Wochenbericht wäre wertlos. Gemessene Grundrate: 0,15 %.
-- **Angemeldet, aber nie hochgeladen.** Eine Inspektion, deren Bilder nach
-  einigen Stunden noch fehlen, ist ein abgebrochener Upload.
-- **Prüfsumme abgelehnt** — S3 weist den PUT dann selbst zurück; das gehört
-  gezählt und gemeldet.
-- **Kennzeichen unplausibel** (`TEST`, leer) — kam in einem echten
-  Produktionstag vor.
+- **Fehlende Ausschnitte — am selben Tag.** Unwiederbringlich, siehe oben.
+- **Nachrichten in der Fehlerablage.** Was dreimal scheiterte, braucht einen
+  Menschen.
+- **Alter der ältesten Nachricht in der Warteschlange.** Läuft die Verarbeitung
+  der Lieferung davon, merkt man es hier zuerst.
+- **Kennzeichen unplausibel.**
 
----
-
-## 7. Kosten
-
-Bei 2.000 Inspektionen und ~76.000 Bildern am Tag: 2.000 Endpoint-Aufrufe und
-2.000 kurze Lambda-Läufe zum Einordnen sind **im Bereich weniger Euro im
-Monat**. Weil die Bilder direkt nach S3 gehen, entfallen sowohl Lambda-Zeit
-fürs Warten als auch NAT-Gebühren für den Download — der Posten von rund 97 $,
-der den Pull-Entwurf belastet hätte, verschwindet ersatzlos.
-
-Das Einordnen kopiert innerhalb von S3 (`CopyObject`), die Bytes laufen also
-serverseitig. Zusammen mit der beim Upload berechneten SHA256 muss unsere
-Lambda kein einziges Bild lesen.
+Als Notnagel bleibt der Abholweg erhalten — nicht als Dienst, aber als Werkzeug:
+`archive_probe.py day <datum>` kann jederzeit einen Zeitraum nachziehen. Das
+funktioniert für Vollbilder auch Wochen später, weil ein erneuter Report-Abruf
+sie neu signiert; für Ausschnitte nicht.
 
 ---
 
-## 8. Was mit FocalX vereinbart werden muss
+## 7. Aufbewahrung: drei Jahre, dann weg
 
-Das ist jetzt eine **Schnittstelle zwischen zwei Häusern**, kein internes
-Detail mehr. Zu klären:
+**Festgelegt am 03.09.2026.** Begründung ist die regelmäßige Verjährung: So
+lange können Ansprüche aus dem Mietvertrag geltend gemacht werden, danach gibt
+es keinen Anlass mehr, ein Foto anzusehen. Das Archiv wächst damit nicht
+unbegrenzt, sondern pendelt sich bei rund **26 TB** ein.
 
-1. Liefern sie aus AWS? Dann wäre eine kontenübergreifende Rolle der direktere
-   Weg als vorsignierte Adressen — die Entscheidung fiel bewusst für den
-   API-Key, aber die Frage gehört gestellt.
-2. **Wann** melden sie an — sofort nach der Analyse oder gesammelt?
-3. Wiederholen sie bei einem Fehler, und wie oft? Unser Ingest ist idempotent,
-   ein zweiter Versuch schadet nie.
-4. Liefern sie **alle** Inspektionen oder nur die eigenen? Die Tagesliste
-   enthielt auch fremde Arbeitsabläufe (Bahnverladung, Mobile-App).
+Vier Punkte, die man beim Bauen kennen muss:
+
+- **Rollierend, nicht stichtagsbezogen.** Jedes Objekt verschwindet drei Jahre
+  nach *seiner* Ablage. Es fällt nicht zum Jahreswechsel ein ganzer Jahrgang
+  weg, sondern täglich hinten so viel, wie vorne dazukommt.
+- **Zwei Stufen, nicht drei.** 90 Tage S3 Standard, danach Glacier Instant
+  Retrieval. Eine weitere Umlagerung ins Deep Archive spart zwar Speicher,
+  kostet aber ungefähr dasselbe an Umlagerungsgebühren — die werden **je
+  Objekt** berechnet, und wir lagern 2,3 Mio. Objekte im Monat um.
+- **Reports und Manifeste bleiben in Standard.** Sie sind winzig (~13 KB) und
+  sollen jederzeit sofort lesbar sein. Ein Größenfilter in der Lifecycle-Regel
+  (`ObjectSizeGreaterThan`) trennt sie von den Bildern, ohne dass das
+  Ablageschema geändert werden müsste.
+- **Ausnahme für strittige Fälle.** Läuft zu einem Fahrzeug ein Verfahren,
+  dürfen dessen Bilder nicht mitten darin automatisch verschwinden. Eine
+  Markierung, die die Löschregel überspringt, ist technisch einfach — sie muss
+  nur stehen, **bevor** die Regel scharf geschaltet wird. Danach ist nichts
+  zurückzuholen.
+
+Das Löschen selbst kostet nichts und umgeht nebenbei, dass uns AWS heute das
+Löschen verbietet: Eine Lifecycle-Regel braucht kein `s3:DeleteObject`-Recht
+für unsere Rolle. Für den DSGVO-Löschweg auf Verlangen gilt das **nicht** —
+der bleibt offen.
+
+---
+
+## 8. Kosten
+
+2.000 Endpoint-Aufrufe und 2.000 Lambda-Läufe à 7 Sekunden am Tag liegen im
+Bereich **weniger Euro im Monat**, dazu SQS im Cent-Bereich. Neben den
+170–190 $ Speicher im Beharrungszustand (Abschnitt 7) fällt das nicht ins
+Gewicht. Der einzige Posten mit Gewicht wäre ein
+NAT-Gateway (~97 $), und der ist vermeidbar, solange Lambda ohne VPC laufen
+darf.
+
+---
+
+## 9. Was mit FocalX vereinbart werden muss
+
+Das ist jetzt eine Schnittstelle zwischen zwei Häusern.
+
+1. **Wann** melden sie — sofort nach Abschluss der Analyse? Davon hängt ab, ob
+   der Gewinn bei den Ausschnitten eintritt.
+2. **Wiederholen sie**, wenn unser Endpoint nicht antwortet? Wie oft, wie lange?
+   Das ist die wichtigste Frage, weil eine verlorene Meldung sonst endgültig
+   verloren ist.
+3. Melden sie **alle** Inspektionen oder nur die aus unserem Arbeitsablauf? Die
+   Tagesliste enthielt auch fremde (Bahnverladung, Mobile-App).
+4. Melden sie auch **unfertige** Reports? Wir würden sie abweisen.
 5. Wer meldet sich bei wem, wenn nichts mehr ankommt?
+6. Wie wird der **Schlüssel** übergeben und rotiert?
 
 ---
 
-## 9. Vorarbeiten
+## 10. Vorarbeiten
 
-1. **Bytes aus der Landezone statt aus dem Netz.** `_fetch` holt heute per
-   HTTP; künftig liegt das Objekt schon in S3 und wird serverseitig kopiert.
-   Die Erweiterung ist klein, weil `Store` die Ablage bereits abstrahiert — es
-   fehlt das Gegenstück für die Herkunft.
-2. **Zugangsdaten aus dem Secrets Manager** statt aus `.env`.
-3. **Vom Benchmark-Code lösen.** `archive_probe.py` importiert `_env` aus
+Alle ohne AWS machbar, parallel zum Kontoantrag.
+
+1. **Zugangsdaten aus dem Secrets Manager** statt aus `.env`.
+2. **Vom Benchmark-Code lösen.** `archive_probe.py` importiert `_env` aus
    `eval.pipeline` und zieht damit `ground_truth`, `mapping` und die
-   LLM-Anbindung mit. Der Archivdienst braucht davon nichts.
-4. Die **Anmeldung bei 401 erneuern** und die **Fensterung der Tagesliste**
-   entfallen — beides betraf nur den Abholweg. Der bleibt als Werkzeug für
-   Nachladen und Tests erhalten (`archive_probe.py day`), nicht als Dienst.
+   LLM-Anbindung mit. Der Archivdienst braucht davon nichts außer
+   `eval.focalx.FocalxClient` (reine Standardbibliothek).
+3. **Eingangsprüfung** nach Abschnitt 5 als eigene Funktion, damit Endpoint und
+   Abholweg dieselbe benutzen.
+
+Entfallen gegenüber dem Abhol-Entwurf: die Fensterung der Tagesliste und die
+Erneuerung der Anmeldung bei 401 — beides betraf nur den Dauerbetrieb des
+Abholens. Für das gelegentliche Nachziehen von Hand reicht der heutige Stand.
 
 ---
 
-## 10. Offen
+## 11. Offen
 
-- **Löschrecht** fehlt heute (explizites Verbot auf `s3:DeleteObject`). Für die
-  Landezone ist eine Lifecycle-Regel der Ausweg, für den DSGVO-Löschweg nicht.
-- **Produktivkonto** weiterhin nicht beantragt — ohne das nichts davon.
-- **Object Ownership** muss beim Anlegen des Buckets richtig stehen; das ist
-  nachträglich unangenehm zu korrigieren.
+- **Produktivkonto** nicht beantragt — ohne das nichts davon.
+- **VPC-Pflicht** entscheidet über die NAT-Kosten (~97 $ oder 0 $).
+- **Löschrecht** fehlt (explizites Verbot auf `s3:DeleteObject`); betrifft den
+  DSGVO-Löschweg, nicht mehr den Betrieb.
