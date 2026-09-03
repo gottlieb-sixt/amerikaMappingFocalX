@@ -1,177 +1,209 @@
-# Vom Handbetrieb zum Dienst: Wie das Archiv von allein läuft
+# Der Archiv-Endpoint: FocalX liefert, wir ordnen ein
 
 Voraussetzung ist [`aws-archiv-voraussetzungen.md`](aws-archiv-voraussetzungen.md)
 — dort steht, was angefragt werden muss und was gemessen wurde. Dieses Dokument
-beantwortet die Anschlussfrage: **Wie wird aus dem Programm, das wir von Hand
-starten, ein Dienst, der jede Nacht von selbst läuft?**
+beschreibt, **wie die Daten zu uns kommen und was daraus wird**.
 
-Stand 02.09.2026: Der Kern funktioniert nachweislich gegen echtes S3 — fünf
-Inspektionen, 166 Bilder, keine Lücke, 350 aufgelöste Adressen, 0 Fehler
-(Abschnitt 7.3 im Voraussetzungs-Dokument). Was fehlt, ist ausschließlich das
-Drumherum: Zeitsteuerung, Ausführungsumgebung, Zugangsdaten, Überwachung.
+> **Richtungswechsel am 03.09.2026.** Ursprünglich sollte ein nächtlicher Lauf
+> die Daten bei FocalX abholen. Stattdessen stellen wir einen **Endpoint**
+> bereit, in den FocalX hineinliefert — voraussichtlich direkt aus ihren
+> internen S3-Buckets. Der Abschnitt „Was dadurch anders wird" hält fest, was
+> das kostet und was es einbringt.
+
+Stand 02.09.2026: Der Ordnungs-Kern funktioniert nachweislich gegen echtes S3 —
+fünf Inspektionen, 166 Bilder, keine Lücke, 350 aufgelöste Adressen, 0 Fehler
+(Abschnitt 7.3 im Voraussetzungs-Dokument).
 
 ---
 
-## 1. Die Zahl, die die Architektur festlegt
+## 1. Was der Richtungswechsel ändert — und was nicht
 
-Der vollständige Tageslauf vom 04.08. brauchte **9,9 min für 425 Inspektionen**
-bei drei parallelen Autos. Hochgerechnet auf die geplanten 2.000 Check-ins am
-Tag sind das **rund 47 Minuten**.
+**Der Auslöser ändert sich, die Verarbeitung nicht.** Was wir gebaut haben, ist
+nicht „Daten holen", sondern „Daten ordnen": ein Prefix je Inspektion, ein
+Manifest mit Prüfsummen, ein Report mit Adressen ins Archiv statt zu FocalX,
+ein Kennzeichen-Index, eine belastbare Vollständigkeitsaussage. Das alles muss
+weiter entstehen — sonst liegt bei uns ein Haufen Objekte, den niemand einer
+Inspektion zuordnen kann. Der Kern in `archive/` bleibt also; aus dem
+Zeitplan wird ein Ereignis.
 
-**Lambda bricht nach 15 Minuten hart ab.** Ein einzelner Lambda-Aufruf für einen
-ganzen Tag ist damit ausgeschlossen. Das ist keine Abwägung, sondern eine
-Grenze — und sie ist der Grund, warum die Entscheidung überhaupt eine ist.
+**Was dadurch besser wird.** Bisher war die Architektur von einer Zahl
+bestimmt: 9,9 min für 425 Inspektionen, hochgerechnet **47 Minuten für einen
+Tag** — mehr als die 15 Minuten, die Lambda erlaubt. Deshalb fiel die Wahl auf
+einen Fargate-Task. Beim Push schrumpft die Arbeitseinheit von „ein ganzer Tag"
+auf „eine Inspektion", also auf Sekunden. **Damit ist Lambda die richtige
+Wahl** — die Entscheidung von gestern dreht sich um, weil sich ihre Grundlage
+geändert hat.
 
-Drei Wege bleiben:
-
-| Weg | Kern | Warum nicht / warum doch |
-|---|---|---|
-| **Fargate-Task nach Zeitplan** | Ein Container führt den Befehl aus, den wir heute von Hand starten | **Gewählt.** Keine Zeitgrenze, kein Umbau — Parallelität, Wiederaufnahme und Zustandshaltung stecken schon im Programm |
-| Lambda-Fächer mit SQS | Eine Funktion listet den Tag, 2.000 Nachrichten, eine Funktion je Inspektion (~20 s) | Wiederholung und Fehlerablage gäbe es geschenkt. Aber: mehr bewegliche Teile, und **jeder Aufruf müsste sich neu bei FocalX anmelden** — 2.000 Anmeldungen am Tag statt einer |
-| EC2 mit Cron | Eine Maschine, ein Cron-Eintrag | Am schnellsten gedacht, am teuersten gepflegt. Patchen, Überwachen, Plattenplatz — alles selbst |
-
-**Entscheidung: Fargate.** Unser Programm ist bereits ein Stapelverarbeiter mit
-Parallelität (`--cars`), Wiederaufnahme über die Ablage und Fehlerbehandlung je
-Auto. Genau das braucht ein Container; für Lambda müsste man es erst zerlegen.
-Der Fächer bleibt der Ausbauweg, falls die Laufzeit einmal drückt — umgekehrt
-wäre es ein Rückbau.
+**Was dadurch schlechter wird.** Wir wissen nicht mehr, was wir erwarten
+müssten. Die Tagesliste sagte uns: gestern gab es 425 Inspektionen. Beim Push
+kennen wir nur, was ankam. Fällt bei FocalX etwas aus, sieht das bei uns aus
+wie ein ruhiger Tag. Ein Abgleich über die Tagesliste ist bewusst **nicht**
+vorgesehen (Entscheidung vom 03.09.); ersatzweise überwachen wir die eigene
+Eingangsrate, siehe Abschnitt 6.
 
 ---
 
 ## 2. Der Ablauf
 
 ```
-EventBridge (nachts)
-   └─> ECS-Fargate-Task  (Image aus ECR)
-         ├─ Secrets Manager  → FocalX-Zugangsdaten
-         ├─ FocalX           → Tagesliste (gefenstert) + Reports + Bilder
-         └─ S3               → report.json · manifest.json · images/ · closeups/
-                               index/plate/…
+FocalX
+  │  ① POST /inspections   (API-Key)  ─ Report-JSON, ~35 KB
+  ▼
+API Gateway ──> Lambda "anmelden"
+  │                 └─ legt den Report in incoming/ ab
+  │                 └─ antwortet mit einer vorsignierten PUT-Adresse je Bild
+  │
+  │  ② PUT <vorsignierte Adresse>  ─ die Bilder, direkt nach S3
+  ▼
+S3  incoming/<inspection-id>/…        (nur schreibbar für FocalX)
+  │
+  │  ③ S3-Ereignis
+  ▼
+Lambda "einordnen"  ──>  S3  v1/<jjjj>/<mm>/<tt>/<inspection-id>/
+                              report.json · manifest.json · images/ · closeups/
+                          index/plate/<KENNZEICHEN>/<inspection-id>.json
 ```
 
-Der Task ist ein Aufruf von `archive_probe.py day` mit `--bucket`. Mehr nicht.
-Die gesamte Fachlogik — Erstreport, Prüfsummen, Adressumschreibung,
-Kennzeichen-Index — liegt unverändert in `archive/` und ist bereits geprüft
-(94 Prüfungen in `scripts/archive_s3_test.py`).
+Drei Aufrufe, drei getrennte Verantwortlichkeiten: anmelden, hochladen,
+einordnen. Die Bilder laufen **nie durch unsere Rechenzeit** — sie gehen von
+FocalX direkt nach S3.
 
 ---
 
-## 3. Die Tagesliste muss gefenstert werden
+## 3. Warum nicht einfach alles über den Endpoint
 
-**Das ist der einzige Punkt, an dem der Entwurf zwingend vom heutigen Verhalten
-abweichen muss.**
+Der naheliegende Entwurf wäre ein einziger Aufruf mit allem darin. Dagegen
+spricht eine harte Zahl: **API Gateway begrenzt eine Anfrage auf 10 MB.** Eine
+Inspektion wiegt im Schnitt 9,5 MB, im Einzelfall deutlich mehr (eine
+Mobile-App-Inspektion mit 7,5-Megapixel-Fotos brachte 164 MB). Das würde nicht
+zuverlässig scheitern, sondern gelegentlich — die unangenehmste aller Varianten,
+weil sie erst im Betrieb auffällt und dann nur sporadisch.
 
-`inspectionswithdate` kennt **keine Paginierung** (`archive/source.py`). Unsere
-eigene Warnschwelle `day_guard` steht bei 900 Einträgen; der gemessene Tag hatte
-425. Bei 2.000 Check-ins am Tag liefe der Dienst also **dauerhaft im
-Warnbereich**, und ob FocalX still abschneidet, ist bei ihnen angefragt und
-unbeantwortet (Abschnitt 3, Frage 8 im Voraussetzungs-Dokument).
-
-Ein stilles Abschneiden ist der gefährlichste denkbare Fehler für dieses
-Vorhaben: Das Archiv wäre technisch vollständig, fachlich lückenhaft, und es
-würde monatelang niemandem auffallen.
-
-Deshalb: Der Dienst fragt **in Fenstern** ab — stündlich oder in Sechs-Stunden-
-Blöcken — und vergleicht die Summe der Fenster mit der Abfrage über den ganzen
-Tag. Weichen sie ab, ist das Abschneiden bewiesen und der Tag gilt als
-unvollständig. Nebeneffekt: Die Fenster sind eine natürliche Aufteilung der
-Arbeit, falls später doch parallelisiert werden soll.
+Deshalb die Zweiteilung: Der **Report** ist mit ~35 KB unkritisch und geht durch
+den Endpoint. Die **Bilder** gehen an vorsignierten Adressen vorbei an unserer
+Rechenzeit. Das ist zugleich billiger — Lambda zahlt keine Zeit fürs Warten auf
+Uploads.
 
 ---
 
-## 4. Zeitplan: überlappende Nachläufe statt Nachhol-Logik
+## 4. Die Landezone
 
-Seit vorhandene Objekte nicht mehr zurückgelesen werden, kostet ein
-Wiederholungslauf **0,0 MB** (Abschnitt 7.3). Das ändert die Betriebsstrategie:
+FocalX schreibt nach `incoming/`, nicht ins Archiv. Ohne diese Trennung
+bestimmt der Absender unser Ablageschema, und beim ersten Formatwechsel bei
+FocalX ist das Archiv inkonsistent.
 
-- **Nachts D−1** — der Vortag, der eigentliche Lauf.
-- **Dazu D−2 und D−3** — dieselbe Arbeit noch zweimal, praktisch gratis.
+Regeln für den Bucket:
 
-Das ist die einfachste denkbare Absicherung gegen verpasste oder verspätete
-Inspektionen: billiger zu bauen und zu verstehen als jede Nachhol-Logik mit
-eigenem Zustand. Was schon da ist, wird übersprungen; was fehlt, wird ergänzt;
-Lücken schließen sich von selbst.
-
-**Grenze der Nachholbarkeit:** Vollbilder lassen sich Wochen später neu
-signieren, Closeups nicht — und ein Mandantenwechsel macht alles Ältere mit
-einem Schlag unerreichbar. Drei Tage Überlappung sind großzügig genug für
-Betriebsstörungen und ehrlich genug, sich nicht auf Nachholbarkeit zu verlassen.
-
----
-
-## 5. Netzwerk und Kosten
-
-Die Rechenkosten sind Rauschen: Fargate mit 1 vCPU / 2 GB für rund eine Stunde
-am Tag kostet **etwa 1,50 $ im Monat** (der Lambda-Fächer läge bei ~10 $). Neben
-10–50 $ Speicher fällt das nicht ins Gewicht.
-
-**Der teure Posten ist das Netz, und er ist vermeidbar.** Läuft der Task in einer
-VPC, kostet ein NAT-Gateway rund 97 $ auf 2,15 TB. Zwei Maßnahmen:
-
-- **S3-Gateway-Endpoint** — kostenlos und nimmt den gesamten Ablage-Verkehr aus
-  dem NAT heraus. Dann zahlt nur noch der Download von FocalX.
-- Alternativ **öffentliches Subnetz mit öffentlicher IP** und ganz ohne NAT,
-  falls die Landing Zone das zulässt. Das ist eine Frage an das Cloud-Team
-  (Abschnitt 4, Frage 2).
+- **Nur schreiben.** Die vorsignierten Adressen erlauben genau ein `PutObject`
+  auf genau einen Schlüssel, zeitlich begrenzt. Kein Lesen, kein Auflisten,
+  kein Überschreiben fremder Objekte.
+- **„Bucket owner enforced" bei Object Ownership.** Bei kontenübergreifenden
+  Uploads gehört ein Objekt sonst dem **Absender** — wir könnten unsere eigenen
+  Daten nicht lesen. Diese Einstellung muss beim Anlegen des Buckets sitzen.
+- **Prüfsumme verpflichtend.** Die vorsignierte Adresse verlangt
+  `x-amz-checksum-sha256`. Das prüft die Übertragung Ende zu Ende und füllt
+  nebenbei unser Manifest, ohne dass wir ein einziges Byte lesen müssen.
+- **Lifecycle-Regel statt Löschen.** Nach dem Einordnen ist die Landezone
+  Ballast; sie doppelt zu bezahlen wäre unnötig. Da uns heute das Löschrecht
+  fehlt (Voraussetzungs-Dokument, Abschnitt 4, Punkt 11), räumt eine
+  Lifecycle-Regel nach wenigen Tagen auf.
 
 ---
 
-## 6. Überwachung
+## 5. Der Endpoint und der Schlüssel
 
-Das Manifest je Inspektion sagt bereits, was vollständig ist und was fehlt; der
-Bestandsbericht (`archive/survey.py`) fasst es zusammen. Daraus werden Alarme:
+`POST /inspections` mit dem Report-JSON im Körper, abgesichert über einen
+**API-Key** im Header. API Gateway bringt dafür Usage Plans mit, die neben der
+Prüfung des Schlüssels auch gleich eine Ratenbegrenzung liefern.
 
-- **Fehlende Closeups — am selben Tag.** Sie sind unwiederbringlich; ein
+Dazu gehört:
+
+- **Rotation von Anfang an mitdenken.** Ein Schlüssel, der nie wechselt, wird
+  irgendwann in einem Wiki stehen. Zwei gleichzeitig gültige Schlüssel erlauben
+  einen Wechsel ohne Absprache im Minutentakt.
+- **Herkunft einschränken**, falls FocalX feste IP-Bereiche nennen kann — eine
+  zweite Hürde, die nichts kostet.
+- **Der Schlüssel liegt im Secrets Manager**, nicht im Code und nicht in einer
+  Umgebungsvariablen des Deployments.
+
+---
+
+## 6. Vollständigkeit und Überwachung
+
+**Je Inspektion bleibt die Prüfung erhalten**, und zwar ohne Zutun: Der Report,
+den FocalX anmeldet, listet selbst alle zugehörigen Bilder. Daraus entsteht wie
+bisher der Soll-Bestand, das Manifest vergleicht ihn mit dem Ist. Eine
+unvollständige Lieferung fällt also weiterhin auf.
+
+**Tagesweise fehlt uns die Kontrolle** — das ist der bewusst in Kauf genommene
+Preis. Ersatz ist ein Alarm auf der **eigenen Eingangsrate**: Kommen statt der
+üblichen ~2.000 Inspektionen plötzlich 300 oder gar keine, ist etwas kaputt,
+ganz gleich wo. Das braucht keinen FocalX-Zugriff und keinen Schlüssel.
+
+Weitere Alarme, unverändert aus dem Pull-Entwurf:
+
+- **Fehlende Ausschnitte — am selben Tag.** Sie sind unwiederbringlich; ein
   Wochenbericht wäre wertlos. Gemessene Grundrate: 0,15 %.
-- **Fehlende Vollbilder** — nachholbar, deshalb genügt ein Tagesbericht.
-- **Tageslauf gar nicht gelaufen** oder mit Fehler beendet.
-- **Fensterprüfung aus Abschnitt 3 schlägt an** — Verdacht auf Abschneiden.
+- **Angemeldet, aber nie hochgeladen.** Eine Inspektion, deren Bilder nach
+  einigen Stunden noch fehlen, ist ein abgebrochener Upload.
+- **Prüfsumme abgelehnt** — S3 weist den PUT dann selbst zurück; das gehört
+  gezählt und gemeldet.
 - **Kennzeichen unplausibel** (`TEST`, leer) — kam in einem echten
   Produktionstag vor.
 
-Dazu regelmäßig, aber selten: `--pruefen` liest Objekte zurück und hält sie
-gegen ihre Prüfsumme. Das kostet vollen Lesezugriff und gehört deshalb auf eine
-Stichprobe, nicht in den Tageslauf.
+---
+
+## 7. Kosten
+
+Bei 2.000 Inspektionen und ~76.000 Bildern am Tag: 2.000 Endpoint-Aufrufe und
+2.000 kurze Lambda-Läufe zum Einordnen sind **im Bereich weniger Euro im
+Monat**. Weil die Bilder direkt nach S3 gehen, entfallen sowohl Lambda-Zeit
+fürs Warten als auch NAT-Gebühren für den Download — der Posten von rund 97 $,
+der den Pull-Entwurf belastet hätte, verschwindet ersatzlos.
+
+Das Einordnen kopiert innerhalb von S3 (`CopyObject`), die Bytes laufen also
+serverseitig. Zusammen mit der beim Upload berechneten SHA256 muss unsere
+Lambda kein einziges Bild lesen.
 
 ---
 
-## 7. Vorarbeiten — laufen ohne AWS
+## 8. Was mit FocalX vereinbart werden muss
 
-Diese vier Punkte brauchen kein Konto und sind der ehrliche nächste Schritt,
-solange der Kontoantrag läuft.
+Das ist jetzt eine **Schnittstelle zwischen zwei Häusern**, kein internes
+Detail mehr. Zu klären:
 
-1. **Fensterung der Tagesliste** (Abschnitt 3). Pflicht, nicht Kür.
-2. **Anmeldung bei 401 erneuern.** `FocalxClient` fängt 401 heute nur im
-   Report-Polling ab (`eval/focalx.py:_poll_report`), nicht auf dem Leseweg, den
-   `FocalxSource.day()` und `.report()` benutzen. Bei einem Lauf von 47 Minuten
-   läuft das Token ab und der Tag stirbt mittendrin.
-3. **Zugangsdaten aus dem Secrets Manager** statt aus `.env`.
-4. **Vom Benchmark-Code lösen.** `archive_probe.py` importiert `_env` aus
+1. Liefern sie aus AWS? Dann wäre eine kontenübergreifende Rolle der direktere
+   Weg als vorsignierte Adressen — die Entscheidung fiel bewusst für den
+   API-Key, aber die Frage gehört gestellt.
+2. **Wann** melden sie an — sofort nach der Analyse oder gesammelt?
+3. Wiederholen sie bei einem Fehler, und wie oft? Unser Ingest ist idempotent,
+   ein zweiter Versuch schadet nie.
+4. Liefern sie **alle** Inspektionen oder nur die eigenen? Die Tagesliste
+   enthielt auch fremde Arbeitsabläufe (Bahnverladung, Mobile-App).
+5. Wer meldet sich bei wem, wenn nichts mehr ankommt?
+
+---
+
+## 9. Vorarbeiten
+
+1. **Bytes aus der Landezone statt aus dem Netz.** `_fetch` holt heute per
+   HTTP; künftig liegt das Objekt schon in S3 und wird serverseitig kopiert.
+   Die Erweiterung ist klein, weil `Store` die Ablage bereits abstrahiert — es
+   fehlt das Gegenstück für die Herkunft.
+2. **Zugangsdaten aus dem Secrets Manager** statt aus `.env`.
+3. **Vom Benchmark-Code lösen.** `archive_probe.py` importiert `_env` aus
    `eval.pipeline` und zieht damit `ground_truth`, `mapping` und die
-   LLM-Anbindung mit in das Image. Der Archivdienst braucht davon nichts außer
-   `eval.focalx.FocalxClient` (reine Standardbibliothek).
+   LLM-Anbindung mit. Der Archivdienst braucht davon nichts.
+4. Die **Anmeldung bei 401 erneuern** und die **Fensterung der Tagesliste**
+   entfallen — beides betraf nur den Abholweg. Der bleibt als Werkzeug für
+   Nachladen und Tests erhalten (`archive_probe.py day`), nicht als Dienst.
 
 ---
 
-## 8. Reihenfolge
+## 10. Offen
 
-1. **Produktivkonto beantragen** — Wochen Vorlauf, deshalb zuerst
-   (Voraussetzungs-Dokument, Abschnitt 4, inklusive Frage 11 zum Löschrecht).
-2. **Vorarbeiten 1–4** parallel dazu, ohne AWS.
-3. **Container bauen und lokal gegen den Dev-Bucket laufen lassen** — derselbe
-   Befehl, nur im Image.
-4. **Task-Definition, Zeitplan, Rolle** im Dev-Konto; ein echter Tag als Probe.
-5. **Alarme** nach Abschnitt 6.
-6. **In Produktion umziehen**, sobald das Konto steht.
-
----
-
-## 9. Offen
-
-- **Rate-Limit von FocalX** unbeantwortet — bis dahin bleibt es bei drei
-  parallelen Autos, was für 47 Minuten Laufzeit reicht.
-- **Löschrecht** fehlt heute (explizites Verbot auf `s3:DeleteObject`). Ohne das
-  ist der DSGVO-Löschweg nicht ausführbar.
-- **VPC-Pflicht** entscheidet über die NAT-Kosten.
-- **Schneidet `inspectionswithdate` ab?** Die Fensterung aus Abschnitt 3 macht
-  uns davon unabhängig, beantwortet die Frage aber nicht.
+- **Löschrecht** fehlt heute (explizites Verbot auf `s3:DeleteObject`). Für die
+  Landezone ist eine Lifecycle-Regel der Ausweg, für den DSGVO-Löschweg nicht.
+- **Produktivkonto** weiterhin nicht beantragt — ohne das nichts davon.
+- **Object Ownership** muss beim Anlegen des Buckets richtig stehen; das ist
+  nachträglich unangenehm zu korrigieren.

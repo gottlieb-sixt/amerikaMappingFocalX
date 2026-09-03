@@ -25,6 +25,15 @@ Abschnitt 3.0).
 > gilt der einzelnen URL, nicht dem Bild. Ein Ausfall des Dienstes über Tage
 > ist damit nachholbar — nur Closeups bleiben unwiederbringlich.
 
+> **Richtungswechsel am 03.09.2026: FocalX liefert, wir holen nicht mehr.**
+> Statt eines nächtlichen Abhollaufs stellen wir einen Endpoint bereit
+> (API-Key + vorsignierte Upload-Adressen), in den FocalX hineinschreibt — siehe
+> [`aws-archiv-betrieb.md`](aws-archiv-betrieb.md). Für dieses Dokument ändert
+> das drei Dinge: Die Mengen und Kosten bleiben, **der Download-Verkehr
+> entfällt** (damit auch die NAT-Frage in Abschnitt 4), und die Fragen an
+> FocalX zu Rate-Limit und Nachladbarkeit verlieren an Gewicht. Neu hinzu kommt
+> eine Schnittstellenvereinbarung mit FocalX (Betriebsdokument, Abschnitt 8).
+
 ---
 
 ## 1. Was bereits gesichert ist
@@ -227,7 +236,7 @@ Ausgangslage: Im Zugriffsportal sind drei Konten sichtbar, darunter
 | # | Frage / Antrag | Warum es vorher geklärt sein muss |
 |---|---|---|
 | 1 | **Produktionskonto** für das Archiv beantragen (Gegenstück zu `mobile-damage-detection-dev`) | 1–2 TB echte Fahrzeugfotos gehören nicht in ein Entwicklungskonto: lockere Rechte, keine Sicherungspflicht, im Zweifel Neuaufsetzung. Solche Anträge dauern Wochen — deshalb Schritt 1 |
-| 2 | **Muss Lambda in einer VPC laufen?** | Wenn ja: NAT-Gateway-Gebühren von ~97 $ auf 2,15 TB. Wenn nein (Lambda ohne VPC-Anbindung): 0 $. Seit die Mengen um Faktor 14 gefallen sind, ist das kein Projektrisiko mehr, aber immer noch das Doppelte der Speicherkosten |
+| 2 | **Muss Lambda in einer VPC laufen?** | ~~NAT-Gateway-Gebühren von ~97 $ auf 2,15 TB~~ — **erledigt durch den Richtungswechsel:** Beim Push lädt niemand mehr 2,15 TB herunter, die Bilder gehen von FocalX direkt nach S3. Bleibt nur noch als allgemeine Frage zur Landing Zone relevant |
 | 3 | **Region** — ist `eu-central-1` gesetzt, und verbieten SCPs andere Regionen? | Datenschutz und Latenz; FocalX liegt selbst in `eu-central-1` |
 | 4 | **Welche Rollen bekommen wir** (`AdministratorAccess`, `PowerUserAccess`, nur Lesen)? Dürfen wir S3-Buckets, Lambda-Funktionen und IAM-Rollen selbst anlegen? | Entscheidet, ob wir in Tagen oder in Ticketwochen bauen |
 | 5 | **Vorgeschriebene Bucket-Einstellungen:** Verschlüsselung (SSE-S3 oder KMS mit eigenem Schlüssel), Versionierung, Zugriffsprotokollierung, „Block Public Access" | Versionierung verdoppelt im Zweifel die Kosten — bei 2 TB verkraftbar, aber vorher wissen, nicht nachher |
