@@ -66,13 +66,18 @@ python3 scripts/export_gold.py
 python3 -u scripts/run_strategy.py v02-name --dry-run   # erst zählen, ohne API
 python3 -u scripts/run_strategy.py v02-name             # echter Lauf (resümierbar)
 
-# AWS-Archiv: S3-Anbindung ohne Konto prüfen (moto, ohne Netz, 94 Prüfungen, ~17 s)
+# AWS-Archiv: Ingest + Lambda prüfen (moto, ohne Netz, 101 Prüfungen, ~17 s)
 ~/.cache/focalx-s3venv/bin/python scripts/archive_s3_test.py
 
 # Echter Lauf gegen S3 (braucht boto3 → dasselbe venv, nicht system-python3)
+export AWS_PROFILE=focalx-dev
 ~/.cache/focalx-s3venv/bin/python -u scripts/archive_probe.py \
   --bucket sixt-focalx-archiv-test-180111006559 --prefix focalx-neu \
   day 2026-08-04 --limit 5
+
+# Endpoint-Ressourcen deployen/ändern (nimmt eine eigene, begrenzte Rolle an)
+export AWS_PROFILE=focalx-deployer
+~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_lambda.py
 
 # Adressen in den Reports neu setzen (nach Umzug/Bucket-Wechsel, ohne Downloads)
 python3 scripts/archive_probe.py --root archive rebuild
@@ -227,6 +232,34 @@ Geholtes (`frisch_bytes`), sonst meldete ein Leerlauf 20 Mbit/s.
 Im Dev-Konto ist `s3:DeleteObject` per **explizitem Verbot** gesperrt
 (`PutObject` geht): Testdaten lassen sich nicht wegräumen, und der
 DSGVO-Löschweg braucht eine eigene Rolle.
+
+**AWS-Endpoint, Stand 03.09.2026:** Im Konto 180111006559 stehen die
+verschlüsselten SQS-Queues `focalx-archive` + `focalx-archive-dlq` (14 Tage,
+DLQ nach 3 Versuchen) sowie die Rollen `focalx-archive-lambda`,
+`focalx-archive-apigw-sqs` und `focalx-archive-deployer`. Direkter `PassRole`
+auf der verwalteten SSO-Rolle ist durch eine zentrale SCP verboten; deshalb
+nimmt das lokale Profil `focalx-deployer` die dritte Rolle an. Sie ist
+PowerUser plus `PassRole` ausschließlich für die zwei Laufzeitrollen und kann
+keine IAM-Rollen erzeugen. Die Lambda `focalx-archive` ist aktiv (Python 3.12
+ARM64, 1 GB, 120 s, BatchSize 1, max. 3 parallel, kein VPC) und schreibt nach
+`s3://sixt-focalx-archiv-test-180111006559/focalx-push/`. Live-Test: 57/57
+Objekte, 39,5 MB, 2,98 s, 138 MB RAM. Deployment ausschließlich über
+`scripts/deploy_archive_lambda.py`; das Paket enthält nur `archive/`, keinen
+Benchmark-Code.
+
+Davor hängt der öffentliche Eingang: `POST https://i0lum1ub7j.execute-api.
+eu-central-1.amazonaws.com/v1/inspections` mit `x-api-key` (Schlüssel-ID
+`utfyecy0oa`, Wert nie ins Protokoll schreiben). API Gateway schiebt den Rumpf
+**ohne Lambda dazwischen** nach SQS; eine Schema-Prüfung am Tor ist bewusst
+unterblieben, weil ein 4xx den Report endgültig verlöre, eine Beanstandung
+durch die Lambda dagegen in der DLQ nachholbar bleibt. **256 KB je
+SQS-Nachricht** ist die harte Decke (größter gesehener Report: 67 KB).
+Sieben Alarme melden über SNS `focalx-archive-alerts`; zwei Messwerte kommen
+per Metrikfilter aus den Lambda-Protokollen, damit ein Fehlschlag sofort
+auffällt statt erst nach den Wiederholungen. `focalx-archive-nichts-angekommen`
+ist im Dev-Konto stummgeschaltet — ohne echten Push stünde er dauerhaft rot.
+Deployment: `scripts/deploy_archive_api.py`, `scripts/deploy_archive_alarms.py`
+(beide wiederholbar). Details: `docs/aws-archiv-betrieb.md`, Abschnitt 11.
 
 **Positionslabels sind eine geteilte Vokabel** — nicht nur ein FocalX-Detail:
 `eval/matcher.LABEL_SIDE_ZONE` leitet daraus die Fahrzeugseite ab. Ein Label, das

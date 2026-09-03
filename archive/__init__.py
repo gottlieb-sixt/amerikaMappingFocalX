@@ -1,9 +1,10 @@
 """FocalX-Archiv: alles, was FocalX zu einer Inspektion erzeugt, dauerhaft sichern.
 
-Der Dienst lädt nichts hoch. Er findet Inspektionen über die Tagesliste — auch
-fremde —, zieht den Report und legt Vollbilder, Closeups und Report unverändert
-ab. Zeitkritisch ist nur der Anfang: Die signierten Vollbild-URLs leben
-168 Stunden, danach sind die Bilder endgültig verloren.
+FocalX schickt den fertigen Report an unseren Endpoint. Der Dienst lädt die
+darin genannten Vollbilder und Closeups sofort und legt sie samt Manifest ab.
+Die Report-Adressen werden auf unser Archiv umgeschrieben; nicht geladene
+Bilder stehen ehrlich als ``null`` darin. Der manuelle Abholweg über die
+Tagesliste bleibt nur für Tests und Nachläufe erhalten.
 
     from archive.ingest import ingest_report
     from archive.store import LocalStore, S3Store

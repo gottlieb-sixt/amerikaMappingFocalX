@@ -107,9 +107,10 @@ schon mit, sie müssen nur angewandt werden:
   Wiederholung schreibt kein Objekt doppelt. Ein inhaltlich abweichender
   Zweitabruf landet als `report.<zeitstempel>.json` daneben.
 
-Der Schlüssel selbst liegt im Secrets Manager. Zwei gleichzeitig gültige
-Schlüssel erlauben eine Rotation ohne Absprache im Minutentakt — ein Schlüssel,
-der nie wechselt, steht irgendwann in einem Wiki.
+Der Schlüssel wird von API Gateway über einen Usage Plan verwaltet; die Lambda
+sieht ihn nie. Zwei gleichzeitig gültige Schlüssel erlauben eine Rotation ohne
+Unterbrechung — ein Schlüssel, der nie wechselt, steht irgendwann in einem
+Wiki.
 
 ---
 
@@ -189,30 +190,35 @@ darf.
 
 Das ist jetzt eine Schnittstelle zwischen zwei Häusern.
 
-1. **Wann** melden sie — sofort nach Abschluss der Analyse? Davon hängt ab, ob
-   der Gewinn bei den Ausschnitten eintritt.
-2. **Wiederholen sie**, wenn unser Endpoint nicht antwortet? Wie oft, wie lange?
-   Das ist die wichtigste Frage, weil eine verlorene Meldung sonst endgültig
-   verloren ist.
-3. Melden sie **alle** Inspektionen oder nur die aus unserem Arbeitsablauf? Die
-   Tagesliste enthielt auch fremde (Bahnverladung, Mobile-App).
-4. Melden sie auch **unfertige** Reports? Wir würden sie abweisen.
-5. Wer meldet sich bei wem, wenn nichts mehr ankommt?
-6. Wie wird der **Schlüssel** übergeben und rotiert?
+Am 03.09.2026 hat FocalX drei wesentliche Punkte zugesagt:
+
+1. Sie melden **sofort nach Abschluss der Analyse**.
+2. Sie **wiederholen**, wenn unser Endpoint nicht antwortet.
+3. Sie melden **nur unsere Inspektionen**, nicht fremde Arbeitsabläufe.
+
+Noch abzustimmen:
+
+1. Melden sie auch **unfertige** Reports? Wir würden sie abweisen.
+2. Wie oft und wie lange wiederholen sie?
+3. Wer meldet sich bei wem, wenn nichts mehr ankommt?
+4. Wie wird der **API-Key** übergeben und rotiert?
 
 ---
 
 ## 10. Vorarbeiten
 
-Alle ohne AWS machbar, parallel zum Kontoantrag.
-
-1. **Zugangsdaten aus dem Secrets Manager** statt aus `.env`.
-2. **Vom Benchmark-Code lösen.** `archive_probe.py` importiert `_env` aus
+1. **Vom Benchmark-Code lösen.** `archive_probe.py` importiert `_env` aus
    `eval.pipeline` und zieht damit `ground_truth`, `mapping` und die
    LLM-Anbindung mit. Der Archivdienst braucht davon nichts außer
    `eval.focalx.FocalxClient` (reine Standardbibliothek).
-3. **Eingangsprüfung** nach Abschnitt 5 als eigene Funktion, damit Endpoint und
+2. **Eingangsprüfung** nach Abschnitt 5 als eigene Funktion, damit Endpoint und
    Abholweg dieselbe benutzen.
+3. **Lambda-Paket bauen:** eine SQS-Nachricht entspricht einem Report und
+   damit genau einer Inspektion.
+
+Der API-Key wird von API Gateway über API-Key und Usage Plan geprüft. Die
+Lambda braucht ihn nicht und erhält deshalb bewusst keinen Zugriff auf Secrets
+Manager.
 
 Entfallen gegenüber dem Abhol-Entwurf: die Fensterung der Tagesliste und die
 Erneuerung der Anmeldung bei 401 — beides betraf nur den Dauerbetrieb des
@@ -220,9 +226,156 @@ Abholens. Für das gelegentliche Nachziehen von Hand reicht der heutige Stand.
 
 ---
 
-## 11. Offen
+## 11. Im Dev-Konto bereits angelegt
 
-- **Produktivkonto** nicht beantragt — ohne das nichts davon.
-- **VPC-Pflicht** entscheidet über die NAT-Kosten (~97 $ oder 0 $).
+Am 03.09.2026 wurden mit den temporären Administratorrechten angelegt:
+
+- SQS `focalx-archive`, verschlüsselt, 14 Tage Aufbewahrung, 15 Minuten
+  Sichtbarkeit.
+- Fehlerwarteschlange `focalx-archive-dlq`, ebenfalls verschlüsselt und 14
+  Tage aufbewahrt. Nach drei fehlgeschlagenen Versuchen wandert eine Nachricht
+  dorthin.
+- `focalx-archive-lambda`: Laufzeitrolle mit Logs, Lesen/Schreiben im
+  Testbucket und Konsumieren der Hauptwarteschlange.
+- `focalx-archive-apigw-sqs`: darf ausschließlich Nachrichten in die
+  Hauptwarteschlange schreiben.
+- `focalx-archive-deployer`: PowerUser plus `iam:PassRole` ausschließlich für
+  die beiden vorigen Rollen. Die normale SSO-Rolle kann sie annehmen; ein
+  direkter `PassRole`-Eintrag auf der verwalteten SSO-Rolle wurde von der
+  zentralen Sixt-SCP ausdrücklich blockiert.
+
+Lokales AWS-Profil für weitere Deployments:
+
+```bash
+export AWS_PROFILE=focalx-deployer
+```
+
+Der Rundtest Senden → Empfangen → Löschen auf SQS war erfolgreich. Die
+PassRole-Simulation erlaubt genau die beiden Laufzeitrollen und verweigert die
+Deployment-Rolle selbst.
+
+Die Lambda `focalx-archive` ist ebenfalls aktiv:
+
+- Python 3.12 auf ARM64, 1.024 MB, 120 Sekunden Timeout.
+- Ein Report je Aufruf (`BatchSize=1`), höchstens drei Inspektionen parallel.
+- Partielle Batch-Antworten: Nur eine vollständig archivierte Inspektion wird
+  aus SQS entfernt. Bei einer Bildlücke bleibt die Nachricht liegen; der
+  nächste Versuch übernimmt vorhandene Objekte und lädt nur die Lücke.
+- Kein VPC-Anschluss. Der Download von FocalX funktioniert damit direkt und
+  verursacht im Dev-Aufbau keine NAT-Gebühren.
+
+Reproduzierbares Deployment, ohne Administratorrechte:
+
+```bash
+export AWS_PROFILE=focalx-deployer
+~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_lambda.py
+```
+
+Der Live-Test schickte einen echten 49.706-Byte-Report durch SQS. Die Lambda
+archivierte **57/57 Objekte, 39,5 MB, in 2,98 Sekunden**, verwendete maximal
+138 MB Arbeitsspeicher und schrieb ein vollständiges Manifest. Danach waren
+Haupt- und Fehlerwarteschlange leer. Ziel:
+`s3://sixt-focalx-archiv-test-180111006559/focalx-push/`.
+
+### Der Endpoint
+
+```
+POST https://i0lum1ub7j.execute-api.eu-central-1.amazonaws.com/v1/inspections
+Header: x-api-key, Content-Type: application/json
+Rumpf:  das Report-JSON, unverändert
+Antwort: 200 {"status":"accepted"}
+```
+
+Regional, kein Lambda dazwischen: API Gateway prüft den Schlüssel und legt den
+Rumpf unverändert in die Warteschlange. Drosselung 20 Anfragen je Sekunde
+(Spitze 40), Tageskontingent 20.000 — bei erwarteten 2.000 also Luft nach oben,
+aber eine Obergrenze, falls jemand in eine Schleife gerät.
+
+```bash
+export AWS_PROFILE=focalx-deployer
+~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_api.py
+```
+
+Der Schlüsselwert wird bewusst **nicht** ausgegeben; das Skript nennt nur die
+Schlüssel-ID (`utfyecy0oa`). Abrufen für die Übergabe an FocalX:
+
+```bash
+aws apigateway get-api-key --api-key utfyecy0oa --include-value \
+  --query value --output text
+```
+
+**Bewusst ohne Schema-Prüfung am Tor.** Wer mit 4xx abgewiesen wird, versucht
+es nicht erneut — ein zu Unrecht abgelehnter Report wäre endgültig verloren.
+Beanstandet dagegen erst die Lambda, liegt die Nachricht in der Fehlerablage
+und ist nachholbar. Solange FocalX' genaues Push-Format nicht beobachtet ist,
+ist das die richtige Richtung zu irren. Nachschärfen kann man später.
+
+Geprüfter Stand:
+
+| Fall | Antwort |
+| --- | --- |
+| ohne Schlüssel | 403 Forbidden |
+| falscher Schlüssel | 403 Forbidden |
+| `Content-Type: text/plain` | 415 Unsupported Media Type |
+| echter Report | 200 in **0,18 s**, danach 38/38 Objekte archiviert |
+
+**Eine Obergrenze, die man kennen muss:** SQS nimmt höchstens 256 KB je
+Nachricht. Der größte bisher gesehene Report hat 67 KB, das ist knapp das
+Vierfache Luft. Wird sie je gesprengt, antwortet der Endpoint mit 5xx statt
+still zu verwerfen — dafür gibt es einen Alarm. Der Ausweg wäre dann, den
+Report zuerst nach S3 zu legen und nur den Verweis in die Warteschlange zu
+geben.
+
+### Alarme
+
+```bash
+~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_alarms.py
+```
+
+Meldeweg ist das SNS-Thema `focalx-archive-alerts`. Zwei der Messwerte kommen
+aus den Lambda-Protokollen (`InspectionFailures`, `InspectionsArchived`), damit
+ein Fehlschlag **sofort** auffällt. Über die Fehlerablage allein bekäme man ihn
+erst **45 Minuten** später zu sehen: drei Versuche mal 15 Minuten
+Sichtbarkeitsdauer, dann erst der Umzug (gemessen 17:03:53 → 17:49).
+
+| Alarm | schlägt an, wenn |
+| --- | --- |
+| `fehlerablage` | irgendetwas endgültig gescheitert in der Fehlerablage liegt |
+| `stau` | die älteste Nachricht länger als 30 Minuten wartet |
+| `einordnen-gescheitert` | die Lambda eine Inspektion nicht einordnen konnte |
+| `lambda-fehler` | die Lambda abstürzt, statt einen Fehler zu melden |
+| `lambda-gedrosselt` | die Parallelitätsgrenze dauerhaft greift |
+| `endpoint-fehler` | FocalX Serverfehler bekommt (dabei geht Datenverkehr verloren) |
+| `nichts-angekommen` | 24 Stunden lang keine Inspektion archiviert wurde |
+
+Der letzte ist der wichtigste und deshalb der einzige, der im Dev-Konto
+**stummgeschaltet** ist: Solange FocalX nicht liefert, stünde er dauerhaft auf
+Rot und würde alle anderen mit abstumpfen. Vor dem Produktivgang:
+
+```bash
+aws cloudwatch enable-alarm-actions --alarm-names focalx-archive-nichts-angekommen
+```
+
+Geprüft mit einer absichtlich kaputten Nachricht, einmal den ganzen Weg
+entlang: Die Lambda wies sie ab (`InvalidReport: InspectionId fehlt oder ist
+keine UUID`), der Frühwarn-Alarm schlug binnen Minuten an, nach genau drei
+Abweisungen zog SQS die Nachricht in die Fehlerablage — einen vierten
+Lambda-Aufruf gab es nicht mehr. Danach wurde die Fehlerablage geleert.
+
+---
+
+## 12. Offen
+
+- **Dev statt Produktion:** Für den Start bewusst akzeptiert. Überwachung und
+  Betrieb bauen wir selbst; ein späterer Umzug bleibt möglich.
+- **Zweiter API-Key** für eine unterbrechungsfreie Rotation. Der Usage Plan
+  kann mehrere gleichzeitig führen; angelegt ist bisher einer.
+- **Anmeldung am Meldeweg bestätigen** — die Mail an gottlieb.dinh@sixt.com ist
+  raus, ohne Klick darin bleiben die Alarme stumm.
+- **Lifecycle:** 90 Tage Standard, danach Glacier Instant Retrieval, nach drei
+  Jahren löschen.
 - **Löschrecht** fehlt (explizites Verbot auf `s3:DeleteObject`); betrifft den
   DSGVO-Löschweg, nicht mehr den Betrieb.
+- **Herkunft einschränken:** Der Endpoint ist öffentlich erreichbar und nur
+  durch den Schlüssel geschützt. Sobald FocalX' Absenderadressen feststehen,
+  gehört eine Ressourcen-Richtlinie davor, die alles andere abweist.

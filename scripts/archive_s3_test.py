@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from archive import ingest as ing
 from archive.ingest import ingest_report, plan_objects, prefix_for, sha256
+from archive.lambda_handler import handle_event
 from archive.store import LocalStore, S3Store
 from archive.survey import collect, summarise
 
@@ -422,6 +423,58 @@ def test_loeschweg(proben) -> None:
     pruefe(andere, f"{len(andere)} Objekte anderer Fahrzeuge bleiben unberührt")
 
 
+def _sqs(report: dict, message_id: str = "m-1") -> dict:
+    return {"Records": [{"messageId": message_id, "body": json.dumps(report)}]}
+
+
+def test_lambda_handler(proben) -> None:
+    """Der SQS-Einstieg muss Erfolg, ungültige Nachrichten und heilbare
+    Download-Lücken unterscheiden. Nur bei vollständigem Bestand darf SQS die
+    Nachricht löschen."""
+    print("\nLambda-Handler über SQS")
+    s3 = S3Store(BUCKET, prefix="lambda")
+    report, bilder = proben[0]
+
+    with ohne_netz(bilder):
+        antwort = handle_event(_sqs(report), s3)
+    pruefe(antwort == {"batchItemFailures": []},
+           "vollständige Inspektion bestätigt die SQS-Nachricht")
+    manifest = json.loads(s3.get(f"{prefix_for(report)}/manifest.json"))
+    pruefe(manifest["vollstaendig"], "Lambda schreibt ein vollständiges Manifest")
+    pruefe(manifest["quelle"] == "push:sqs:m-1",
+           "Manifest nennt die Push-Nachricht als Quelle")
+
+    kaputt = dict(report)
+    kaputt["Completed"] = False
+    vorher = sorted(s3.list(""))
+    antwort = handle_event({
+        "Records": [
+            {"messageId": "nicht-fertig", "body": json.dumps(kaputt)},
+            {"messageId": "kein-json", "body": "kaputt"},
+        ]
+    }, s3)
+    pruefe(antwort == {"batchItemFailures": [
+        {"itemIdentifier": "nicht-fertig"},
+        {"itemIdentifier": "kein-json"},
+    ]}, "unfertige und ungültige Reports werden erneut versucht")
+    pruefe(sorted(s3.list("")) == vorher,
+           "ungültige Nachrichten schreiben nichts ins Archiv")
+
+    # Ein temporär fehlendes Bild führt zur Wiederholung. Der zweite Versuch
+    # übernimmt alles Vorhandene aus dem Manifest und holt nur die Lücke.
+    report2, bilder2 = proben[1]
+    verweigert = next(iter(bilder2))
+    with ohne_netz({u: b for u, b in bilder2.items() if u != verweigert}):
+        erster = handle_event(_sqs(report2, "luecke"), s3)
+    pruefe(erster == {"batchItemFailures": [{"itemIdentifier": "luecke"}]},
+           "eine Bildlücke lässt die SQS-Nachricht stehen")
+    with ohne_netz(bilder2):
+        zweiter = handle_event(_sqs(report2, "luecke"), s3)
+    manifest2 = json.loads(s3.get(f"{prefix_for(report2)}/manifest.json"))
+    pruefe(zweiter == {"batchItemFailures": []} and manifest2["vollstaendig"],
+           "der SQS-Wiederholungsversuch schließt die Lücke")
+
+
 def main() -> int:
     if not QUELLE.exists():
         print(f"Keine FocalX-Reports unter {QUELLE}.")
@@ -458,6 +511,7 @@ def main() -> int:
         test_paginierung()
         test_survey(proben)
         test_loeschweg(proben)
+        test_lambda_handler(proben)
 
     print(f"\n{geprueft} Prüfungen bestanden.")
     return 0
