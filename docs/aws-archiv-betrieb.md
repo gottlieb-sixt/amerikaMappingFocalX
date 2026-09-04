@@ -2,7 +2,9 @@
 
 Voraussetzung ist [`aws-archiv-voraussetzungen.md`](aws-archiv-voraussetzungen.md)
 — dort steht, was angefragt werden muss und was gemessen wurde. Dieses Dokument
-beschreibt, **wie die Daten zu uns kommen und was daraus wird**.
+beschreibt, **wie die Daten zu uns kommen und was daraus wird**. Die
+Gegenrichtung — wieder herankommen, auswerten, was das kostet — steht in
+[`aws-archiv-daten-nutzen.md`](aws-archiv-daten-nutzen.md).
 
 > **Stand 03.09.2026 — zugesagt und geklärt.** FocalX liefert künftig von sich
 > aus, statt dass wir nachts abholen. Geliefert wird **das Report-JSON, genau

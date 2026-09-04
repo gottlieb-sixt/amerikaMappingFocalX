@@ -244,6 +244,16 @@ sind Uploadreste nach 7 Tagen, >128 KB nach 90 Tagen → Glacier IR, Löschen na
 1.095 Tagen. Der Größenfilter hält Reports/Manifeste in Standard — unter 128 KB
 wäre Glacier IR teurer, weil dort jedes Objekt mit 128 KB berechnet wird.
 
+**Archivdaten wieder auswerten** — Kosten und Fallen in
+`docs/aws-archiv-daten-nutzen.md`. Kurz: Zwei getrennte Gebühren, die man
+auseinanderhalten muss — Lesen *aus Glacier IR* kostet 0,03 $/GB (auch beim
+Kopieren im selben Bucket), Bytes *aus der Region heraus* 0,09 $/GB. Ein
+Notebook außerhalb `eu-central-1` kostet also mehr als das ganze Glacier.
+Reports/Manifeste bleiben dauerhaft in Standard ⇒ **Metadaten-Auswertungen sind
+gratis**; erst filtern, dann gezielt Bilder holen. Bei Mehrfachnutzung einmal
+abrufen und auf einer Arbeitskopie rechnen — die aber **nicht** unter
+`focalx-push/` anlegen, sonst zieht die 90-Tage-Regel sie zurück nach Glacier.
+
 **AWS-Endpoint, Stand 03.09.2026:** Im Konto 180111006559 stehen die
 verschlüsselten SQS-Queues `focalx-archive` + `focalx-archive-dlq` (14 Tage,
 DLQ nach 3 Versuchen) sowie die Rollen `focalx-archive-lambda`,
