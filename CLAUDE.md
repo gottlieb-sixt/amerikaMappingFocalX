@@ -201,11 +201,12 @@ Klicks über Koordinaten, Zellen nicht im DOM).
   eingefrorenen Benchmark-Zahlen sind historische Messungen, keine Gegenwart.
 
 **Das AWS-Archiv ist ausgezogen (04.09.2026).** Es liegt jetzt unter
-`~/Documents/Code/focalx-archiv` — eigenes Repo, eigene Prüfsuite, eigene
-`CLAUDE.md`. Hier ist davon nichts mehr übrig: kein `archive/`, keine
-`scripts/archive_*.py`, keine `scripts/deploy_archive_*.py`, keine
-`docs/aws-archiv-*.md`. Wer etwas über Ablage, Endpoint, Alarme,
-Aufbewahrungsfristen oder Zugriffskosten sucht, schaut dort.
+`../Code/focalx-archiv` (Schwesterordner dieses Repos in OneDrive, **nicht** in
+`~/Documents`) — eigenes Repo, eigene Prüfsuite, eigene `CLAUDE.md`. Hier ist
+davon nichts mehr übrig: kein `archive/`, keine `scripts/archive_*.py`, keine
+`scripts/deploy_archive_*.py`, keine `docs/aws-archiv-*.md`. Wer etwas über
+Ablage, Endpoint, Alarme, Aufbewahrungsfristen oder Zugriffskosten sucht,
+schaut dort.
 
 Geteilt bleibt nur der FocalX-Zugang — und auch der nur halb: Das Archiv nahm
 eine reine Lesefassung mit, `eval/focalx.py` hier bleibt der volle Client mit
