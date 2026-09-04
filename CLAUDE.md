@@ -66,22 +66,6 @@ python3 scripts/export_gold.py
 python3 -u scripts/run_strategy.py v02-name --dry-run   # erst zählen, ohne API
 python3 -u scripts/run_strategy.py v02-name             # echter Lauf (resümierbar)
 
-# AWS-Archiv: Ingest + Lambda prüfen (moto, ohne Netz, 101 Prüfungen, ~17 s)
-~/.cache/focalx-s3venv/bin/python scripts/archive_s3_test.py
-
-# Echter Lauf gegen S3 (braucht boto3 → dasselbe venv, nicht system-python3)
-export AWS_PROFILE=focalx-dev
-~/.cache/focalx-s3venv/bin/python -u scripts/archive_probe.py \
-  --bucket sixt-focalx-archiv-test-180111006559 --prefix focalx-neu \
-  day 2026-08-04 --limit 5
-
-# Endpoint-Ressourcen deployen/ändern (nimmt eine eigene, begrenzte Rolle an)
-export AWS_PROFILE=focalx-deployer
-~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_lambda.py
-
-# Adressen in den Reports neu setzen (nach Umzug/Bucket-Wechsel, ohne Downloads)
-python3 scripts/archive_probe.py --root archive rebuild
-
 # Großer Stapel, unbeaufsichtigt (s. Abschnitt "Stapelläufe")
 python3 -u scripts/batch.py --run fl500 status
 python3 -u scripts/batch.py --run fl500 all --limit 30
@@ -202,8 +186,7 @@ Klicks über Koordinaten, Zellen nicht im DOM).
   nur 26 deckungsgleich) ⇒ über (position, part, type) matchen, nie über Index.
   Innerhalb von Minuten ändert sich dagegen nur die Reihenfolge im `Damages`-Feld
   (8 von 425 Reports) — plus bei **jedem** Abruf neue `Expires`/`Signature`.
-  Reports nie über Bytes vergleichen; `archive/ingest.py:fingerprint` rechnet
-  beides heraus.
+  Reports nie über Bytes vergleichen.
 - **Der Mandant hat gewechselt: `sixt` → `sixttwo`.** Reports vor Ende Juli tragen
   `Account: "sixt"` und liegen unter `cloudfront.net/sixt/v2/…`; alles ab August
   unter `sixttwo`. Mit den heutigen Zugangsdaten sind die alten **nicht mehr
@@ -217,70 +200,18 @@ Klicks über Koordinaten, Zellen nicht im DOM).
   `TXWCV5796` → `TX-WCV5796`. Kennzeichen immer selbst normalisieren; die
   eingefrorenen Benchmark-Zahlen sind historische Messungen, keine Gegenwart.
 
-**AWS-Archiv** (`archive/`): Je Inspektion liegen **eine** `report.json` und ein
-`manifest.json` im Bucket. Die Reportdatei trägt unsere `s3://`-Adressen, die
-FocalX-Adressen werden nicht aufbewahrt; nicht Archiviertes steht als `null` in
-den drei Adressfeldern und gesammelt in `Archiv.fehlend`. Weil damit unsere
-Fassung und ein frischer FocalX-Bericht nie byteweise gleich sind, vergleicht
-`ingest.fingerprint` **ohne** Adressen und ohne Sortierung — wer das aufweicht,
-legt bei jedem Zweitabruf eine falsche `report.<zeitstempel>.json` an. Adressen
-werden bei jedem Lauf neu gesetzt, ein Nachlauf schließt also Lücken von selbst.
-Vorhandene Objekte werden **nicht** zurückgelesen — die Prüfsumme kommt aus dem
-letzten Manifest; nur `--pruefen` liest wirklich nach und meldet Abweichungen
-als `pruefsumme_abweichend`. Der Durchsatz im Lauf zählt daher nur frisch
-Geholtes (`frisch_bytes`), sonst meldete ein Leerlauf 20 Mbit/s.
-Im Dev-Konto ist `s3:DeleteObject` per **explizitem Verbot** gesperrt
-(`PutObject` geht) — für den DSGVO-Löschweg auf Verlangen braucht es eine
-eigene Rolle. **Für Fristen nicht:** Eine Lifecycle-Regel läuft mit den Rechten
-von S3, nicht mit unseren, und löscht auch ohne dieses Recht. Genau so wurden
-die Testdaten der Bauphase weggeräumt, an die wir sonst nie herankamen.
-Zwei Fallen dabei: Lifecycle-Filter kennen **kein „außer"** — Objekte lassen
-sich nur einschließen (Prefix/Tag/Größe), nie ausnehmen, ein „alles außer
-Rechtsstreit" ist damit unmöglich (Ausweg: aus dem Prefix herausbewegen oder
-Object Lock). Und Prefixe vergleicht S3 **zeichenweise, nicht ordnerweise**:
-`focalx-` fasst auch `focalx-push/` an. Regeln setzt
-`scripts/deploy_archive_lifecycle.py` (ohne `--anwenden` nur Probelauf); gesetzt
-sind Uploadreste nach 7 Tagen, >128 KB nach 90 Tagen → Glacier IR, Löschen nach
-1.095 Tagen. Der Größenfilter hält Reports/Manifeste in Standard — unter 128 KB
-wäre Glacier IR teurer, weil dort jedes Objekt mit 128 KB berechnet wird.
+**Das AWS-Archiv ist ausgezogen (04.09.2026).** Es liegt jetzt unter
+`~/Documents/Code/focalx-archiv` — eigenes Repo, eigene Prüfsuite, eigene
+`CLAUDE.md`. Hier ist davon nichts mehr übrig: kein `archive/`, keine
+`scripts/archive_*.py`, keine `scripts/deploy_archive_*.py`, keine
+`docs/aws-archiv-*.md`. Wer etwas über Ablage, Endpoint, Alarme,
+Aufbewahrungsfristen oder Zugriffskosten sucht, schaut dort.
 
-**Archivdaten wieder auswerten** — Kosten und Fallen in
-`docs/aws-archiv-daten-nutzen.md`. Kurz: Zwei getrennte Gebühren, die man
-auseinanderhalten muss — Lesen *aus Glacier IR* kostet 0,03 $/GB (auch beim
-Kopieren im selben Bucket), Bytes *aus der Region heraus* 0,09 $/GB. Ein
-Notebook außerhalb `eu-central-1` kostet also mehr als das ganze Glacier.
-Reports/Manifeste bleiben dauerhaft in Standard ⇒ **Metadaten-Auswertungen sind
-gratis**; erst filtern, dann gezielt Bilder holen. Bei Mehrfachnutzung einmal
-abrufen und auf einer Arbeitskopie rechnen — die aber **nicht** unter
-`focalx-push/` anlegen, sonst zieht die 90-Tage-Regel sie zurück nach Glacier.
-
-**AWS-Endpoint, Stand 03.09.2026:** Im Konto 180111006559 stehen die
-verschlüsselten SQS-Queues `focalx-archive` + `focalx-archive-dlq` (14 Tage,
-DLQ nach 3 Versuchen) sowie die Rollen `focalx-archive-lambda`,
-`focalx-archive-apigw-sqs` und `focalx-archive-deployer`. Direkter `PassRole`
-auf der verwalteten SSO-Rolle ist durch eine zentrale SCP verboten; deshalb
-nimmt das lokale Profil `focalx-deployer` die dritte Rolle an. Sie ist
-PowerUser plus `PassRole` ausschließlich für die zwei Laufzeitrollen und kann
-keine IAM-Rollen erzeugen. Die Lambda `focalx-archive` ist aktiv (Python 3.12
-ARM64, 1 GB, 120 s, BatchSize 1, max. 3 parallel, kein VPC) und schreibt nach
-`s3://sixt-focalx-archiv-test-180111006559/focalx-push/`. Live-Test: 57/57
-Objekte, 39,5 MB, 2,98 s, 138 MB RAM. Deployment ausschließlich über
-`scripts/deploy_archive_lambda.py`; das Paket enthält nur `archive/`, keinen
-Benchmark-Code.
-
-Davor hängt der öffentliche Eingang: `POST https://i0lum1ub7j.execute-api.
-eu-central-1.amazonaws.com/v1/inspections` mit `x-api-key` (Schlüssel-ID
-`utfyecy0oa`, Wert nie ins Protokoll schreiben). API Gateway schiebt den Rumpf
-**ohne Lambda dazwischen** nach SQS; eine Schema-Prüfung am Tor ist bewusst
-unterblieben, weil ein 4xx den Report endgültig verlöre, eine Beanstandung
-durch die Lambda dagegen in der DLQ nachholbar bleibt. **256 KB je
-SQS-Nachricht** ist die harte Decke (größter gesehener Report: 67 KB).
-Sieben Alarme melden über SNS `focalx-archive-alerts`; zwei Messwerte kommen
-per Metrikfilter aus den Lambda-Protokollen, damit ein Fehlschlag sofort
-auffällt statt erst nach den Wiederholungen. `focalx-archive-nichts-angekommen`
-ist im Dev-Konto stummgeschaltet — ohne echten Push stünde er dauerhaft rot.
-Deployment: `scripts/deploy_archive_api.py`, `scripts/deploy_archive_alarms.py`
-(beide wiederholbar). Details: `docs/aws-archiv-betrieb.md`, Abschnitt 11.
+Geteilt bleibt nur der FocalX-Zugang — und auch der nur halb: Das Archiv nahm
+eine reine Lesefassung mit, `eval/focalx.py` hier bleibt der volle Client mit
+Anlegen und Hochladen. Änderungen an einem wirken **nicht** auf den anderen;
+was den Anbieter selbst betrifft (Mandantenwechsel, Kennzeichenformat),
+gehört in beide `CLAUDE.md`.
 
 **Positionslabels sind eine geteilte Vokabel** — nicht nur ein FocalX-Detail:
 `eval/matcher.LABEL_SIDE_ZONE` leitet daraus die Fahrzeugseite ab. Ein Label, das
