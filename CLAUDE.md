@@ -230,8 +230,19 @@ letzten Manifest; nur `--pruefen` liest wirklich nach und meldet Abweichungen
 als `pruefsumme_abweichend`. Der Durchsatz im Lauf zählt daher nur frisch
 Geholtes (`frisch_bytes`), sonst meldete ein Leerlauf 20 Mbit/s.
 Im Dev-Konto ist `s3:DeleteObject` per **explizitem Verbot** gesperrt
-(`PutObject` geht): Testdaten lassen sich nicht wegräumen, und der
-DSGVO-Löschweg braucht eine eigene Rolle.
+(`PutObject` geht) — für den DSGVO-Löschweg auf Verlangen braucht es eine
+eigene Rolle. **Für Fristen nicht:** Eine Lifecycle-Regel läuft mit den Rechten
+von S3, nicht mit unseren, und löscht auch ohne dieses Recht. Genau so wurden
+die Testdaten der Bauphase weggeräumt, an die wir sonst nie herankamen.
+Zwei Fallen dabei: Lifecycle-Filter kennen **kein „außer"** — Objekte lassen
+sich nur einschließen (Prefix/Tag/Größe), nie ausnehmen, ein „alles außer
+Rechtsstreit" ist damit unmöglich (Ausweg: aus dem Prefix herausbewegen oder
+Object Lock). Und Prefixe vergleicht S3 **zeichenweise, nicht ordnerweise**:
+`focalx-` fasst auch `focalx-push/` an. Regeln setzt
+`scripts/deploy_archive_lifecycle.py` (ohne `--anwenden` nur Probelauf); gesetzt
+sind Uploadreste nach 7 Tagen, >128 KB nach 90 Tagen → Glacier IR, Löschen nach
+1.095 Tagen. Der Größenfilter hält Reports/Manifeste in Standard — unter 128 KB
+wäre Glacier IR teurer, weil dort jedes Objekt mit 128 KB berechnet wird.
 
 **AWS-Endpoint, Stand 03.09.2026:** Im Konto 180111006559 stehen die
 verschlüsselten SQS-Queues `focalx-archive` + `focalx-archive-dlq` (14 Tage,

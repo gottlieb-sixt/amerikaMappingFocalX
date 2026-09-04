@@ -162,16 +162,56 @@ Vier Punkte, die man beim Bauen kennen muss:
   sollen jederzeit sofort lesbar sein. Ein Größenfilter in der Lifecycle-Regel
   (`ObjectSizeGreaterThan`) trennt sie von den Bildern, ohne dass das
   Ablageschema geändert werden müsste.
-- **Ausnahme für strittige Fälle.** Läuft zu einem Fahrzeug ein Verfahren,
-  dürfen dessen Bilder nicht mitten darin automatisch verschwinden. Eine
-  Markierung, die die Löschregel überspringt, ist technisch einfach — sie muss
-  nur stehen, **bevor** die Regel scharf geschaltet wird. Danach ist nichts
-  zurückzuholen.
+- **Ausnahme für strittige Fälle — und hier lag ein Denkfehler.** Ursprünglich
+  stand hier, eine Markierung könne die Löschregel überspringen. Das geht
+  nicht: S3-Lifecycle-Filter kennen kein „außer". Man kann Objekte
+  *einschließen* (nach Prefix, Tag, Größe), aber keines ausnehmen. Bleiben zwei
+  Wege. **Herausbewegen:** Die Regel gilt nur unter `focalx-push/`, ein
+  Kopieren nach `hold/` schützt also — kostet nichts, funktioniert heute, und
+  der Kennzeichen-Index sagt in Sekunden, welche Objekte betroffen sind.
+  **S3 Object Lock:** rechtlich sauberer, hält auch gegen die Lifecycle-Regel,
+  braucht aber Versionierung und ist nachträglich umständlich einzuschalten.
+  Was auch immer es wird — es muss stehen, **bevor** in drei Jahren das erste
+  Objekt fällig wird.
 
 Das Löschen selbst kostet nichts und umgeht nebenbei, dass uns AWS heute das
-Löschen verbietet: Eine Lifecycle-Regel braucht kein `s3:DeleteObject`-Recht
-für unsere Rolle. Für den DSGVO-Löschweg auf Verlangen gilt das **nicht** —
-der bleibt offen.
+Löschen verbietet: **Eine Lifecycle-Regel läuft mit den Rechten von S3, nicht
+mit unseren**, und braucht deshalb kein `s3:DeleteObject`. Für den
+DSGVO-Löschweg auf Verlangen hilft das **nicht** — der braucht Löschen auf
+Zuruf statt nach Frist und bleibt offen.
+
+### Gesetzt am 04.09.2026
+
+```bash
+export AWS_PROFILE=focalx-deployer
+~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_lifecycle.py            # Probelauf
+~/.cache/focalx-s3venv/bin/python scripts/deploy_archive_lifecycle.py --anwenden
+```
+
+Ohne `--anwenden` passiert nichts. Das ist Absicht: Die Löschregel ist der
+einzige Teil dieses Aufbaus, der Daten vernichtet, und sie tut es leise.
+
+| Regel | gilt für | tut |
+| --- | --- | --- |
+| `abgebrochene-uploads` | `focalx-push/` | räumt Uploadreste nach 7 Tagen |
+| `bilder-kuehlen` | `focalx-push/`, > 128 KB | nach 90 Tagen → Glacier IR |
+| `nach-drei-jahren-loeschen` | `focalx-push/` | löscht nach 1.095 Tagen |
+
+Der Größenfilter ist kein Feinschliff: Glacier IR berechnet jedes Objekt mit
+mindestens 128 KB, kleinere lägen dort also *teurer* als in Standard. Nebenbei
+hält er Reports und Manifeste (13–50 KB) von selbst in der schnellen Klasse,
+ohne dass am Ablageschema etwas geändert werden musste.
+
+Das Skript verwaltet nur Regeln mit der Kennung `focalx-…` und lässt fremde
+stehen. Es bricht ab, wenn ein Aufräum-Prefix das Archiv streifen würde — S3
+vergleicht zeichenweise, nicht ordnerweise, `focalx-` fasst also auch
+`focalx-push/` an. Bei einem versionierten Bucket verweigert es die Arbeit,
+statt zu raten: Dort erzeugt der Ablauf nur eine Löschmarkierung, die Daten
+blieben als alte Version liegen und würden weiter berechnet.
+
+Mit derselben Regelart wurden die Testdaten der Bauphase (`focalx/`,
+`focalx-neu/`, zusammen 424 Objekte) zum Aufräumen vorgemerkt — von Hand kamen
+wir nie an sie heran.
 
 ---
 
@@ -372,10 +412,11 @@ Lambda-Aufruf gab es nicht mehr. Danach wurde die Fehlerablage geleert.
   kann mehrere gleichzeitig führen; angelegt ist bisher einer.
 - **Anmeldung am Meldeweg bestätigen** — die Mail an gottlieb.dinh@sixt.com ist
   raus, ohne Klick darin bleiben die Alarme stumm.
-- **Lifecycle:** 90 Tage Standard, danach Glacier Instant Retrieval, nach drei
-  Jahren löschen.
-- **Löschrecht** fehlt (explizites Verbot auf `s3:DeleteObject`); betrifft den
-  DSGVO-Löschweg, nicht mehr den Betrieb.
+- **Schutz für strittige Fälle** festlegen (Herausbewegen nach `hold/` oder
+  Object Lock) — muss stehen, bevor das erste Objekt fällig wird.
+- **Löschrecht** fehlt (explizites Verbot auf `s3:DeleteObject`); betrifft nur
+  noch den DSGVO-Löschweg auf Verlangen. Der Fristablauf ist über die
+  Lifecycle-Regel gelöst.
 - **Herkunft einschränken:** Der Endpoint ist öffentlich erreichbar und nur
   durch den Schlüssel geschützt. Sobald FocalX' Absenderadressen feststehen,
   gehört eine Ressourcen-Richtlinie davor, die alles andere abweist.
